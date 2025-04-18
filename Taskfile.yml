@@ -1,0 +1,27 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  GREETING: Hello, World!
+
+tasks:
+  deploy-cloudformation:
+    cmds:
+      - |
+        cd cloudformation; \
+        aws cloudformation deploy \
+        --template-file WindsorBootstrapper.yaml \
+        --stack-name WindsorBootstrapper \
+        --capabilities CAPABILITY_NAMED_IAM
+
+  bootstrap:
+    cmds:
+      - |
+        cd cloudformation; \
+        aws codebuild start-build --project-name SampleCodeBuildProject
+
+  default:
+    cmds:
+      - task --list-all
+    silent: true
