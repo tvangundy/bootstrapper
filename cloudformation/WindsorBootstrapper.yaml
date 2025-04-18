@@ -1,7 +1,37 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Simple CloudFormation template to create a basic CodeBuild project
+Description: AWS CodeBuild Project with GitHub Source and BuildSpec
 
 Resources:
+  WindsorBootstrapper:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: WindsorBootstrapper
+      Description: Build project for compiling and testing code
+      Source:
+        Type: GITHUB
+        Location: https://github.com/windsorcli/core.git
+        Auth:
+          Type: OAUTH
+          Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:GitHubAccess-JKiZjD
+      SourceVersion: docker-build
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:5.0
+        EnvironmentVariables:
+          - Name: ENV
+            Value: production
+            Type: PLAINTEXT
+          - Name: GITHUB_TOKEN
+            Value: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:GitHubAccess-JKiZjD
+            Type: SECRETS_MANAGER
+      Artifacts:
+        Type: NO_ARTIFACTS
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: /aws/codebuild/WindsorBootstrapper
 
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
@@ -11,10 +41,8 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Service:
-                - codebuild.amazonaws.com
-            Action:
-              - sts:AssumeRole
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AWSCodeBuildDeveloperAccess
       Policies:
@@ -27,38 +55,12 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: arn:aws:logs:us-east-2:590183787785:log-group:/aws/codebuild/windsor-bootstrapper:*
-        - PolicyName: CodeBuildS3AccessPolicy
+                Resource: arn:aws:logs:us-east-2:590183787785:log-group:/aws/codebuild/WindsorBootstrapper:*
+        - PolicyName: SecretsManagerAccessPolicy
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
-                  - s3:GetObject
-                Resource: arn:aws:s3:::windsor-bootstrapper-590183787785/bootstrapper.zip
-
-  CodeBuildProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: windsor-bootstrapper
-      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
-      Source:
-        Type: S3
-        Location: windsor-bootstrapper-590183787785/bootstrapper.zip
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:7.0
-      Artifacts:
-        Type: NO_ARTIFACTS
-      LogsConfig:
-        CloudWatchLogs:
-          Status: ENABLED
-          GroupName: /aws/codebuild/windsor-bootstrapper
-      TimeoutInMinutes: 10
-
-Outputs:
-  CodeBuildProjectName:
-    Description: Name of the CodeBuild project
-    Value: !Ref CodeBuildProject
-    
+                  - secretsmanager:GetSecretValue
+                Resource: arn:aws:secretsmanager:us-east-2:590183787785:secret:GitHubAccess-JKiZjD
