@@ -1,12 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: CloudFormation template to create and run a CodeBuild project
+Description: Simple CloudFormation template to create a basic CodeBuild project
 
 Resources:
 
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: CodeBuildServiceRole
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -18,58 +17,45 @@ Resources:
               - sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AWSCodeBuildDeveloperAccess
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
-
-  CodeBuildLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: /aws/codebuild/windsor-bootstrapper
-      RetentionInDays: 7
+      Policies:
+        - PolicyName: CodeBuildLogsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:us-east-2:590183787785:log-group:/aws/codebuild/windsor-bootstrapper:*
+        - PolicyName: CodeBuildS3AccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: arn:aws:s3:::windsor-bootstrapper-590183787785/bootstrapper.zip
 
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: WindsorBootstrapper
+      Name: windsor-bootstrapper
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Source:
-        Type: GITHUB
-        Location: https://github.com/windsorcli/core.git:docker-build
+        Type: S3
+        Location: windsor-bootstrapper-590183787785/bootstrapper.zip
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/standard:7.0
-        PrivilegedMode: false
       Artifacts:
         Type: NO_ARTIFACTS
       LogsConfig:
         CloudWatchLogs:
           Status: ENABLED
-          GroupName: !Ref CodeBuildLogGroup
-          StreamName: windsor-bootstrapper-stream
+          GroupName: /aws/codebuild/windsor-bootstrapper
       TimeoutInMinutes: 10
-      BuildSpec: |
-        version: 0.2
-        phases:
-          install:
-            commands:
-              - "curl -L -o windsor_0.5.6_linux_amd64.tar.gz https://github.com/windsorcli/cli/releases/download/v0.5.6/windsor_0.5.6_linux_amd64.tar.gz && \
-                sudo tar -xzf windsor_0.5.6_linux_amd64.tar.gz -C /usr/local/bin && \
-                sudo chmod +x /usr/local/bin/windsor"
-              - "export HOME=$(pwd)"
-              - "curl -sSfL https://raw.githubusercontent.com/aquaproj/aqua-installer/v3.1.1/aqua-installer | bash"
-
-          pre_build:
-            commands:
-              - "export PATH=${AQUA_ROOT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/aquaproj-aqua}/bin:$PATH"
-              - "aqua i"
-              - "windsor version"
-          build:
-            - "export DOCKER_HOST=unix:///var/run/docker.sock"
-            - "export WINDSOR_PROJECT_ROOT=$(pwd)"
-            - "windsor init local"
-          post_build:
-            commands:
-              - echo Build completed on `date`
 
 Outputs:
   CodeBuildProjectName:

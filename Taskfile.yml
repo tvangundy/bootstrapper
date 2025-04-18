@@ -21,6 +21,31 @@ tasks:
         cd cloudformation; \
         aws codebuild start-build --project-name SampleCodeBuildProject
 
+  destroy-cloudformation:
+    cmds:
+      - |
+        cd cloudformation; \
+        aws cloudformation delete-stack \
+        --stack-name WindsorBootstrapper
+
+  debug-cloudformation:
+    cmds:
+      - |
+        cd cloudformation; \
+        aws cloudformation describe-stack-events --stack-name WindsorBootstrapper
+
+  create-bucket:
+    cmds:
+      - |
+        aws s3api create-bucket --bucket windsor-bootstrapper-590183787785 --region us-east-2 --create-bucket-configuration LocationConstraint=us-east-2
+        
+  upload-source:
+    cmds:
+      - |
+        cd cloudformation/buildspec; \
+        zip -r bootstrapper.zip . 
+        aws s3 cp bootstrapper.zip s3://windsor-bootstrapper-590183787785/bootstrapper.zip
+
   default:
     cmds:
       - task --list-all
