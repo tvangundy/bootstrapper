@@ -84,6 +84,7 @@ Resources:
                   - s3:PutObject
                   - s3:DeleteObject
                   - s3:CreateBucket
+                  - s3:GetBucketTagging
                 Resource:
                   - arn:aws:s3:::mtv-bootstrapper-bucket-2
                   - arn:aws:s3:::mtv-bootstrapper-bucket-2/*
