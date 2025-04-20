@@ -32,7 +32,8 @@ phases:
     commands:
       - echo "Executing windsor action ${ACTION}"
       - windsor ${ACTION}
-      - if [ "${ACTION}" == "down" ]; then
-          aws s3 rb s3://${BUCKET_NAME} --force;
+      - |
+        if [ "${ACTION}" == "down" ]; then
+          aws s3 rb s3://${BUCKET_NAME} --force
         fi
       - aws s3 ls
