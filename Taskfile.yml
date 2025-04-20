@@ -4,7 +4,7 @@ version: '3'
 
 vars:
   GREETING: Hello, World!
-  BUCKET_NAME: bootstrapper-test-bucket
+  BUCKET_NAME: mtv-bootstrapper-test-bucket
   OS: linux
   ARCH: amd64
   WINDSOR_VERSION: 0.5.6
