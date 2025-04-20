@@ -14,7 +14,7 @@ sources:
   ref:
     branch: main
 terraform:
-- path: backend/s3
+- path: s3
 kustomize:
 - name: telemetry-base
   path: telemetry/base
