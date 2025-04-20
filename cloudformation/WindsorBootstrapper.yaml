@@ -92,6 +92,11 @@ Resources:
                   - s3:GetBucketEncryption
                   - s3:PutEncryptionConfiguration
                   - s3:GetEncryptionConfiguration
+                  - s3:PutBucketPolicy
+                  - s3:GetBucketPolicy
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:GetBucketPublicAccessBlock
+                  
                 Resource:
                   - arn:aws:s3:::mtv-bootstrapper-bucket-2
                   - arn:aws:s3:::mtv-bootstrapper-bucket-2/*
