@@ -5,7 +5,7 @@ provider "aws" {
 variable "bucket_name" {
   description = "The name of the S3 bucket to use."
   type        = string
-  default     = "bootstrapper-test-bucket"
+  default     = "bootstrapper-bucket"
 }
 
 resource "aws_s3_bucket" "this" {

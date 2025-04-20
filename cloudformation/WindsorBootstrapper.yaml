@@ -10,7 +10,7 @@ Parameters:
     Default: cloudformation/buildspec.yml
   BucketName:
     Type: String
-    Default: bootstrapper-test-bucket
+    Default: bootstrapper-bucket
     Description: The name of the S3 bucket to use
   StackName:
     Type: String
@@ -21,10 +21,65 @@ Parameters:
     Default: bootstrapper-poc
     Description: The version of the source code to use
 Resources:
-  CodeBuildProject:
+  S3CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Ref StackName
+      Name: !Sub "S3-${StackName}"
+      Description: Build project for compiling and testing code
+      Source:
+        Type: S3
+        Location: !Sub "arn:aws:s3:::${BucketName}"
+        BuildSpec: !Ref BuildSpec
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:5.0
+      Artifacts:
+        Type: NO_ARTIFACTS
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: !Sub "/aws/codebuild/${StackName}"
+          
+  S3CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodeBuildDeveloperAccess
+      Policies:
+        - PolicyName: CodeBuildLogsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:us-east-2:590183787785:log-group:/aws/codebuild/windsor-bootstrapper:*
+        - PolicyName: CodeBuildS3AccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: arn:aws:s3:::windsor-bootstrapper-590183787785/bootstrapper.zip
+
+  GitHubCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "GitHub-${StackName}"
       Description: Build project for compiling and testing code
       Source:
         Type: GITHUB
@@ -56,7 +111,7 @@ Resources:
           Status: ENABLED
           GroupName: !Sub "/aws/codebuild/${StackName}"
 
-  CodeBuildServiceRole:
+  GitHubCodeBuildServiceRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:

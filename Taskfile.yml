@@ -4,7 +4,7 @@ version: '3'
 
 vars:
   GREETING: Hello, World!
-  BUCKET_NAME: mtv-bootstrapper-test-bucket
+  BUCKET_NAME: mtv-bootstrapper-bucket
   OS: linux
   ARCH: amd64
   WINDSOR_VERSION: 0.5.6
@@ -73,14 +73,13 @@ tasks:
   create-bucket:
     cmds:
       - |
-        aws s3api create-bucket --bucket windsor-bootstrapper-590183787785 --region us-east-2 --create-bucket-configuration LocationConstraint=us-east-2
+        aws s3api create-bucket --bucket {{.BUCKET_NAME}} --region us-east-2 --create-bucket-configuration LocationConstraint=us-east-2
         
   upload-source:
     cmds:
       - |
-        cd cloudformation; \
-        zip -r bootstrapper.zip . 
-        aws s3 cp bootstrapper.zip s3://windsor-bootstrapper-590183787785/bootstrapper.zip
+        zip -r bootstrapper.zip . -x '*/.*'
+        aws s3 cp bootstrapper.zip s3://{{.BUCKET_NAME}}/bootstrapper.zip
 
   default:
     cmds:
