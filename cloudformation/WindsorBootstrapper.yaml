@@ -1,6 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: AWS CodeBuild Project with GitHub Source and BuildSpec
+Description: AWS CodeBuild Project 
 
+Parameters:
+  Repository:
+    Type: String
+    Default: https://github.com/tvangundy/bootstrapper.git
+  BuildSpec:
+    Type: String
+    Default: cloudformation/buildspec/buildspec.yml
+    
 Resources:
   WindsorBootstrapper:
     Type: AWS::CodeBuild::Project
@@ -9,11 +17,12 @@ Resources:
       Description: Build project for compiling and testing code
       Source:
         Type: GITHUB
-        Location: https://github.com/windsorcli/core.git
+        Location: !Ref Repository
+        BuildSpec: !Ref BuildSpec
         Auth:
           Type: OAUTH
-          Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:GitHubAccess-JKiZjD
-      SourceVersion: docker-build
+          Resource: arn:aws:secretsmanager:us-east-2:590183787785:secret:GitHubAccess-JKiZjD
+      SourceVersion: bootstrapper-poc
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
@@ -23,7 +32,7 @@ Resources:
             Value: production
             Type: PLAINTEXT
           - Name: GITHUB_TOKEN
-            Value: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:GitHubAccess-JKiZjD
+            Value: arn:aws:secretsmanager:us-east-2:590183787785:secret:GitHubAccess-JKiZjD
             Type: SECRETS_MANAGER
       Artifacts:
         Type: NO_ARTIFACTS

@@ -1,42 +1,31 @@
 version: 0.2
 
-env:
-  variables:
-    PARAM1: "value1"
-    PARAM2: "value2"
-
 phases:
   install:
     commands:
-      - echo "Using PARAM1: $PARAM1"
-      - |
-        export HOME=$(pwd)
-        export DOCKER_HOST=unix:///var/run/docker.sock
-        export WINDSOR_PROJECT_ROOT=$(pwd)
-        curl -L -o windsor_0.5.6_linux_amd64.tar.gz https://github.com/windsorcli/cli/releases/download/v0.5.6/windsor_0.5.6_linux_amd64.tar.gz
-        sudo tar -xzf windsor_0.5.6_linux_amd64.tar.gz -C /usr/local/bin
-        sudo chmod +x /usr/local/bin/windsor
-        curl -L -o aqua_linux_amd64.tar.gz https://github.com/aquaproj/aqua/releases/download/v2.49.0-0/aqua_linux_amd64.tar.gz
-        mkdir -p aqua
-        tar -xzf aqua_linux_amd64.tar.gz -C aqua
-        export PATH=$(pwd)/aqua:$PATH
-        aqua install
-        export PATH=${AQUA_ROOT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/aquaproj-aqua}/bin:$PATH
+      - export HOME=$(pwd)
+      - export DOCKER_HOST=unix:///var/run/docker.sock
+      - export WINDSOR_PROJECT_ROOT=$(pwd)
+      - curl -L -o windsor_0.5.6_linux_amd64.tar.gz https://github.com/windsorcli/cli/releases/download/v0.5.6/windsor_0.5.6_linux_amd64.tar.gz
+      - sudo tar -xzf windsor_0.5.6_linux_amd64.tar.gz -C /usr/local/bin
+      - sudo chmod +x /usr/local/bin/windsor
+      - curl -L -o aqua_linux_amd64.tar.gz https://github.com/aquaproj/aqua/releases/download/v2.49.0-0/aqua_linux_amd64.tar.gz
+      - mkdir -p aqua
+      - tar -xzf aqua_linux_amd64.tar.gz -C aqua
+      - export PATH=$(pwd)/aqua:$PATH
+      - aqua install
+      - export PATH=${AQUA_ROOT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/aquaproj-aqua}/bin:$PATH
   pre_build:
     commands:
-      - |
-        windsor version
-        terraform version
-        windsor init aws
+      - windsor version
+      - terraform version
+      - windsor init aws
   build:
     commands:
-      - |
-        windsor up
-        aws s3 ls
+      - windsor up
+      - aws s3 ls
   post_build:
     commands:
-      - |
-        windsor down
-        echo "HACK: deleting bucket"
-        aws s3 rb s3://mtv-backend-bucket --force
-        aws s3 ls
+      - windsor down
+      - aws s3 rb s3://mtv-backend-bucket --force
+      - aws s3 ls
