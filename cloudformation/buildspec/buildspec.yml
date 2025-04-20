@@ -31,9 +31,11 @@ phases:
   build:
     commands:
       - echo "Executing windsor action ${ACTION}"
-      - windsor ${ACTION}
       - |
         if [ "${ACTION}" == "down" ]; then
+          windsor down
           aws s3 rb s3://${BUCKET_NAME} --force
+        else
+          windsor up
         fi
       - aws s3 ls

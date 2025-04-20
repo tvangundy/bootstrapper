@@ -12,12 +12,15 @@ Parameters:
     Type: String
     Default: mtv-bootstrapper-bucket-2
     Description: The name of the S3 bucket to use
-
+  StackName:
+    Type: String
+    Default: WindsorBootstrapper
+    Description: The name of the CloudFormation stack to create
 Resources:
-  WindsorBootstrapper:
+  CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: WindsorBootstrapper
+      Name: !Ref StackName
       Description: Build project for compiling and testing code
       Source:
         Type: GITHUB
@@ -47,7 +50,7 @@ Resources:
       LogsConfig:
         CloudWatchLogs:
           Status: ENABLED
-          GroupName: /aws/codebuild/WindsorBootstrapper
+          GroupName: /aws/codebuild/${StackName}
 
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
@@ -71,7 +74,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: arn:aws:logs:us-east-2:590183787785:log-group:/aws/codebuild/WindsorBootstrapper:*
+                Resource: arn:aws:logs:us-east-2:590183787785:log-group:/aws/codebuild/${StackName}:*
         - PolicyName: SecretsManagerAccessPolicy
           PolicyDocument:
             Version: '2012-10-17'

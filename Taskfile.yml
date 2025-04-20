@@ -12,7 +12,7 @@ vars:
   ACTION: up
   REPOSITORY: https://github.com/tvangundy/bootstrapper.git
   BUILD_SPEC: cloudformation/buildspec/buildspec.yml
-
+  STACK_NAME: WindsorBootstrapper
 tasks:
 
   deploy-cloudformation:
@@ -21,19 +21,20 @@ tasks:
         cd cloudformation; \
         aws cloudformation deploy \
         --template-file WindsorBootstrapper.yaml \
-        --stack-name WindsorBootstrapper \
+        --stack-name {{.STACK_NAME}} \
         --capabilities CAPABILITY_NAMED_IAM \
         --parameter-overrides \
           Repository={{.REPOSITORY}} \
           BuildSpec={{.BUILD_SPEC}} \
-          BucketName={{.BUCKET_NAME}}
+          BucketName={{.BUCKET_NAME}} \
+          StackName={{.STACK_NAME}}
 
   start-codebuild:
     cmds:
       - |
         cd cloudformation/buildspec; \
         aws codebuild start-build \
-          --project-name WindsorBootstrapper \
+          --project-name {{.STACK_NAME}} \
           --environment-variables-override \
             name=BUCKET_NAME,value={{.BUCKET_NAME}} \
             name=OS,value={{.OS}} \
@@ -47,13 +48,13 @@ tasks:
       - |
         cd cloudformation; \
         aws cloudformation delete-stack \
-        --stack-name WindsorBootstrapper
+        --stack-name {{.STACK_NAME}}
 
   debug-cloudformation:
     cmds:
       - |
         cd cloudformation; \
-        aws cloudformation describe-stack-events --stack-name WindsorBootstrapper
+        aws cloudformation describe-stack-events --stack-name {{.STACK_NAME}}
 
   create-bucket:
     cmds:
