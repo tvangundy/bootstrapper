@@ -30,7 +30,7 @@ phases:
       - windsor init aws
   build:
     commands:
-      - echo "Executing windsor action: ${ACTION}"
+      - echo "Executing windsor action ${ACTION}"
       - windsor ${ACTION}
       - if [ "${ACTION}" == "down" ]; then
           aws s3 rb s3://${BUCKET_NAME} --force;

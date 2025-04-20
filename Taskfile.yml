@@ -34,12 +34,12 @@ tasks:
         cd cloudformation/buildspec; \
         aws codebuild start-build \
           --project-name WindsorBootstrapper \
-          --environment-variables-override \ 
-            name=BUCKET_NAME,value={{.BUCKET_NAME}},\ 
-            name=OS,value={{.OS}},\ 
-            name=ARCH,value={{.ARCH}},\ 
-            name=WINDSOR_VERSION,value={{.WINDSOR_VERSION}},\ 
-            name=AQUA_VERSION,value={{.AQUA_VERSION}},\ 
+          --environment-variables-override \
+            name=BUCKET_NAME,value={{.BUCKET_NAME}} \
+            name=OS,value={{.OS}} \
+            name=ARCH,value={{.ARCH}} \
+            name=WINDSOR_VERSION,value={{.WINDSOR_VERSION}} \
+            name=AQUA_VERSION,value={{.AQUA_VERSION}} \
             name=ACTION,value={{.ACTION}}
             
   destroy-cloudformation:
