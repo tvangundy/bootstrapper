@@ -7,6 +7,7 @@ env:
     ARCH: amd64
     WINDSOR_VERSION: 0.5.6
     AQUA_VERSION: 2.49.0-0
+    ACTION: up
 phases:
   install:
     commands:
@@ -29,10 +30,9 @@ phases:
       - windsor init aws
   build:
     commands:
-      - windsor up
-      - aws s3 ls
-  post_build:
-    commands:
-      - windsor down
-      - aws s3 rb s3://${BUCKET_NAME} --force
+      - echo "Executing windsor action: ${ACTION}"
+      - windsor ${ACTION}
+      - if [ "${ACTION}" == "down" ]; then
+          aws s3 rb s3://${BUCKET_NAME} --force;
+        fi
       - aws s3 ls

@@ -4,14 +4,16 @@ version: '3'
 
 vars:
   GREETING: Hello, World!
+  BUCKET_NAME: mtv-bootstrapper-bucket-2
+  OS: linux
+  ARCH: amd64
+  WINDSOR_VERSION: 0.5.6
+  AQUA_VERSION: 2.49.0-0
+  ACTION: up
+  REPOSITORY: https://github.com/tvangundy/bootstrapper.git
+  BUILD_SPEC: cloudformation/buildspec/buildspec.yml
 
 tasks:
-
-  start-codebuild:
-    cmds:
-      - |
-        cd cloudformation; \
-        aws codebuild start-build --project-name WindsorBootstrapper --environment-variables-override name=PARAM1,value=value1,name=PARAM2,value=value2
 
   deploy-cloudformation:
     cmds:
@@ -20,14 +22,26 @@ tasks:
         aws cloudformation deploy \
         --template-file WindsorBootstrapper.yaml \
         --stack-name WindsorBootstrapper \
-        --capabilities CAPABILITY_NAMED_IAM
+        --capabilities CAPABILITY_NAMED_IAM \
+        --parameter-overrides \
+          Repository={{.REPOSITORY}} \
+          BuildSpec={{.BUILD_SPEC}} \
+          BucketName={{.BUCKET_NAME}}
 
-  bootstrap:
+  start-codebuild:
     cmds:
       - |
-        cd cloudformation; \
-        aws codebuild start-build --project-name WindsorBootstrapper
-
+        cd cloudformation/buildspec; \
+        aws codebuild start-build \
+          --project-name WindsorBootstrapper \
+          --environment-variables-override \ 
+            name=BUCKET_NAME,value={{.BUCKET_NAME}},\ 
+            name=OS,value={{.OS}},\ 
+            name=ARCH,value={{.ARCH}},\ 
+            name=WINDSOR_VERSION,value={{.WINDSOR_VERSION}},\ 
+            name=AQUA_VERSION,value={{.AQUA_VERSION}},\ 
+            name=ACTION,value={{.ACTION}}
+            
   destroy-cloudformation:
     cmds:
       - |
