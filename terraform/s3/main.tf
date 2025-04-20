@@ -3,7 +3,7 @@ provider "aws" {
 }
 
 resource "aws_s3_bucket" "bootstrapper" {
-  bucket = "mtv-bootstrapper-bucket-2" 
+  bucket = "bootstrapper-test-bucket" 
 
   versioning {
     enabled = true

@@ -7,10 +7,10 @@ Parameters:
     Default: https://github.com/tvangundy/bootstrapper.git
   BuildSpec:
     Type: String
-    Default: cloudformation/buildspec/buildspec.yml
+    Default: cloudformation/buildspec.yml
   BucketName:
     Type: String
-    Default: mtv-bootstrapper-bucket-2
+    Default: bootstrapper-test-bucket
     Description: The name of the S3 bucket to use
   StackName:
     Type: String

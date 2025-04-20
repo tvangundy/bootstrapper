@@ -4,14 +4,14 @@ version: '3'
 
 vars:
   GREETING: Hello, World!
-  BUCKET_NAME: mtv-bootstrapper-bucket-2
+  BUCKET_NAME: bootstrapper-test-bucket
   OS: linux
   ARCH: amd64
   WINDSOR_VERSION: 0.5.6
   AQUA_VERSION: 2.49.0-0
   ACTION: up
   REPOSITORY: https://github.com/tvangundy/bootstrapper.git
-  BUILD_SPEC: cloudformation/buildspec/buildspec.yml
+  BUILD_SPEC: cloudformation/buildspec.yml
   STACK_NAME: WindsorBootstrapper
 tasks:
 
@@ -32,7 +32,7 @@ tasks:
   start-codebuild-up:
     cmds:
       - |
-        cd cloudformation/buildspec; \
+        cd cloudformation; \
         aws codebuild start-build \
           --project-name {{.STACK_NAME}} \
           --environment-variables-override \
@@ -46,7 +46,7 @@ tasks:
   start-codebuild-down:
     cmds:
       - |
-        cd cloudformation/buildspec; \
+        cd cloudformation; \
         aws codebuild start-build \
           --project-name {{.STACK_NAME}} \
           --environment-variables-override \
@@ -78,7 +78,7 @@ tasks:
   upload-source:
     cmds:
       - |
-        cd cloudformation/buildspec; \
+        cd cloudformation; \
         zip -r bootstrapper.zip . 
         aws s3 cp bootstrapper.zip s3://windsor-bootstrapper-590183787785/bootstrapper.zip
 

@@ -2,7 +2,7 @@ version: 0.2
 
 env:
   variables:
-    BUCKET_NAME: mtv-bootstrapper-bucket-2
+    BUCKET_NAME: bootstrapper-test-bucket
     OS: linux
     ARCH: amd64
     WINDSOR_VERSION: 0.5.6
