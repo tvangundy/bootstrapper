@@ -90,6 +90,8 @@ Resources:
                   - s3:PutBucketVersioning
                   - s3:PutBucketEncryption
                   - s3:GetBucketEncryption
+                  - s3:PutEncryptionConfiguration
+                  - s3:GetEncryptionConfiguration
                 Resource:
                   - arn:aws:s3:::mtv-bootstrapper-bucket-2
                   - arn:aws:s3:::mtv-bootstrapper-bucket-2/*
