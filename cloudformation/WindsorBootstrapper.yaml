@@ -50,7 +50,7 @@ Resources:
       LogsConfig:
         CloudWatchLogs:
           Status: ENABLED
-          GroupName: /aws/codebuild/${StackName}
+          GroupName: !Sub "/aws/codebuild/${StackName}"
 
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
