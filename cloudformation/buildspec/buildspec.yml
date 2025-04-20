@@ -5,7 +5,7 @@ env:
     BUCKET_NAME: mtv-bootstrapper-bucket-2
     OS: linux
     ARCH: amd64
-    VERSION: 0.5.6
+    WINDSOR_VERSION: 0.5.6
     AQUA_VERSION: 2.49.0-0
 phases:
   install:
@@ -13,8 +13,8 @@ phases:
       - export HOME=$(pwd)
       - export DOCKER_HOST=unix:///var/run/docker.sock
       - export WINDSOR_PROJECT_ROOT=$(pwd)
-      - curl -L -o windsor_${VERSION}_${OS}_${ARCH}.tar.gz https://github.com/windsorcli/cli/releases/download/v${VERSION}/windsor_${VERSION}_${OS}_${ARCH}.tar.gz
-      - sudo tar -xzf windsor_${VERSION}_${OS}_${ARCH}.tar.gz -C /usr/local/bin
+      - curl -L -o windsor_${WINDSOR_VERSION}_${OS}_${ARCH}.tar.gz https://github.com/windsorcli/cli/releases/download/v${WINDSOR_VERSION}/windsor_${WINDSOR_VERSION}_${OS}_${ARCH}.tar.gz
+      - sudo tar -xzf windsor_${WINDSOR_VERSION}_${OS}_${ARCH}.tar.gz -C /usr/local/bin
       - sudo chmod +x /usr/local/bin/windsor
       - curl -L -o aqua_${OS}_${ARCH}.tar.gz https://github.com/aquaproj/aqua/releases/download/v${AQUA_VERSION}/aqua_${OS}_${ARCH}.tar.gz
       - mkdir -p aqua

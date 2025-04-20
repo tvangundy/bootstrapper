@@ -8,7 +8,11 @@ Parameters:
   BuildSpec:
     Type: String
     Default: cloudformation/buildspec/buildspec.yml
-    
+  BucketName:
+    Type: String
+    Default: mtv-bootstrapper-bucket-2
+    Description: The name of the S3 bucket to use
+
 Resources:
   WindsorBootstrapper:
     Type: AWS::CodeBuild::Project
@@ -34,6 +38,9 @@ Resources:
           - Name: GITHUB_TOKEN
             Value: arn:aws:secretsmanager:us-east-2:590183787785:secret:GitHubAccess-JKiZjD
             Type: SECRETS_MANAGER
+          - Name: BUCKET_NAME
+            Value: !Ref BucketName
+            Type: PLAINTEXT
       Artifacts:
         Type: NO_ARTIFACTS
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
@@ -79,7 +86,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - s3:*                  
+                  - s3:*
                 Resource:
-                  - arn:aws:s3:::mtv-bootstrapper-bucket-2
-                  - arn:aws:s3:::mtv-bootstrapper-bucket-2/*
+                  - !Sub "arn:aws:s3:::${BucketName}"
+                  - !Sub "arn:aws:s3:::${BucketName}/*"
