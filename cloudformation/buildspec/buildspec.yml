@@ -32,7 +32,7 @@ phases:
     commands:
       - echo "Executing windsor action ${ACTION}"
       - |
-        if [ "${ACTION}" == "down" ]; then
+        if [ "${ACTION}" = "down" ]; then
           windsor down
           aws s3 rb s3://${BUCKET_NAME} --force
         else

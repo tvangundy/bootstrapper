@@ -29,7 +29,7 @@ tasks:
           BucketName={{.BUCKET_NAME}} \
           StackName={{.STACK_NAME}}
 
-  start-codebuild:
+  start-codebuild-up:
     cmds:
       - |
         cd cloudformation/buildspec; \
@@ -41,8 +41,22 @@ tasks:
             name=ARCH,value={{.ARCH}} \
             name=WINDSOR_VERSION,value={{.WINDSOR_VERSION}} \
             name=AQUA_VERSION,value={{.AQUA_VERSION}} \
-            name=ACTION,value={{.ACTION}}
-            
+            name=ACTION,value=up
+
+  start-codebuild-down:
+    cmds:
+      - |
+        cd cloudformation/buildspec; \
+        aws codebuild start-build \
+          --project-name {{.STACK_NAME}} \
+          --environment-variables-override \
+            name=BUCKET_NAME,value={{.BUCKET_NAME}} \
+            name=OS,value={{.OS}} \
+            name=ARCH,value={{.ARCH}} \
+            name=WINDSOR_VERSION,value={{.WINDSOR_VERSION}} \
+            name=AQUA_VERSION,value={{.AQUA_VERSION}} \
+            name=ACTION,value=down
+
   destroy-cloudformation:
     cmds:
       - |
