@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "us-east-1" // Specify your desired region
+  region = "us-east-2" // Specify your desired region
 }
 
 resource "aws_s3_bucket" "bootstrapper" {
@@ -18,12 +18,12 @@ resource "aws_s3_bucket" "bootstrapper" {
   }
 
   tags = {
-    Name        = "Backend S3 Bucket"
+    Name        = "Bootstrapper S3 Bucket"
     Environment = "Production"
   }
 }
 
-resource "aws_s3_bucket_public_access_block" "backend" {
+resource "aws_s3_bucket_public_access_block" "bootstrapper" {
   bucket = aws_s3_bucket.bootstrapper.id
 
   block_public_acls   = true
@@ -32,6 +32,6 @@ resource "aws_s3_bucket_public_access_block" "backend" {
   restrict_public_buckets = true
 }
 
-output "backend_bucket_name" {
+output "bootstrapper_bucket_name" {
   value = aws_s3_bucket.bootstrapper.id
 }
