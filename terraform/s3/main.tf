@@ -2,8 +2,14 @@ provider "aws" {
   region = "us-east-2" // Specify your desired region
 }
 
-resource "aws_s3_bucket" "bootstrapper" {
-  bucket = "bootstrapper-test-bucket" 
+variable "bucket_name" {
+  description = "The name of the S3 bucket to use."
+  type        = string
+  default     = "bootstrapper-test-bucket"
+}
+
+resource "aws_s3_bucket" "this" {
+  bucket = var.bucket_name
 
   versioning {
     enabled = true
@@ -24,7 +30,7 @@ resource "aws_s3_bucket" "bootstrapper" {
 }
 
 resource "aws_s3_bucket_public_access_block" "bootstrapper" {
-  bucket = aws_s3_bucket.bootstrapper.id
+  bucket = aws_s3_bucket.this.id
 
   block_public_acls   = true
   block_public_policy = true
@@ -33,5 +39,5 @@ resource "aws_s3_bucket_public_access_block" "bootstrapper" {
 }
 
 output "bootstrapper_bucket_name" {
-  value = aws_s3_bucket.bootstrapper.id
+  value = aws_s3_bucket.this.id
 }
