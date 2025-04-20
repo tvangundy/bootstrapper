@@ -1,17 +1,23 @@
 version: 0.2
 
+env:
+  BUCKET_NAME: mtv-bootstrapper-bucket-2
+  OS: linux
+  ARCH: amd64
+  VERSION: 0.5.6
+  AQUA_VERSION: 2.49.0-0
 phases:
   install:
     commands:
       - export HOME=$(pwd)
       - export DOCKER_HOST=unix:///var/run/docker.sock
       - export WINDSOR_PROJECT_ROOT=$(pwd)
-      - curl -L -o windsor_0.5.6_linux_amd64.tar.gz https://github.com/windsorcli/cli/releases/download/v0.5.6/windsor_0.5.6_linux_amd64.tar.gz
-      - sudo tar -xzf windsor_0.5.6_linux_amd64.tar.gz -C /usr/local/bin
+      - curl -L -o windsor_${VERSION}_${OS}_${ARCH}.tar.gz https://github.com/windsorcli/cli/releases/download/v${VERSION}/windsor_${VERSION}_${OS}_${ARCH}.tar.gz
+      - sudo tar -xzf windsor_${VERSION}_${OS}_${ARCH}.tar.gz -C /usr/local/bin
       - sudo chmod +x /usr/local/bin/windsor
-      - curl -L -o aqua_linux_amd64.tar.gz https://github.com/aquaproj/aqua/releases/download/v2.49.0-0/aqua_linux_amd64.tar.gz
+      - curl -L -o aqua_${OS}_${ARCH}.tar.gz https://github.com/aquaproj/aqua/releases/download/v${AQUA_VERSION}/aqua_${OS}_${ARCH}.tar.gz
       - mkdir -p aqua
-      - tar -xzf aqua_linux_amd64.tar.gz -C aqua
+      - tar -xzf aqua_${OS}_${ARCH}.tar.gz -C aqua
       - export PATH=$(pwd)/aqua:$PATH
       - aqua install
       - export PATH=${AQUA_ROOT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/aquaproj-aqua}/bin:$PATH
@@ -27,5 +33,5 @@ phases:
   post_build:
     commands:
       - windsor down
-      - aws s3 rb s3://mtv-bootstrapper-bucket-2 --force
+      - aws s3 rb s3://${BUCKET_NAME} --force
       - aws s3 ls

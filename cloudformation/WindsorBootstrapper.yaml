@@ -80,7 +80,6 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:*                  
-                  
                 Resource:
                   - arn:aws:s3:::mtv-bootstrapper-bucket-2
                   - arn:aws:s3:::mtv-bootstrapper-bucket-2/*
