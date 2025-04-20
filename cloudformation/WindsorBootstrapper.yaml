@@ -28,7 +28,7 @@ Resources:
       Description: Build project for compiling and testing code
       Source:
         Type: S3
-        Location: !Sub "arn:aws:s3:::${BucketName}"
+        Location: !Sub ${BucketName}/bootstrapper.zip
         BuildSpec: !Ref BuildSpec
       Environment:
         Type: LINUX_CONTAINER
@@ -36,7 +36,7 @@ Resources:
         Image: aws/codebuild/standard:5.0
       Artifacts:
         Type: NO_ARTIFACTS
-      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      ServiceRole: !GetAtt S3CodeBuildServiceRole.Arn
       LogsConfig:
         CloudWatchLogs:
           Status: ENABLED
@@ -66,7 +66,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: arn:aws:logs:us-east-2:590183787785:log-group:/aws/codebuild/windsor-bootstrapper:*
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${StackName}:*"
         - PolicyName: CodeBuildS3AccessPolicy
           PolicyDocument:
             Version: '2012-10-17'
@@ -74,80 +74,80 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:GetObject
-                Resource: arn:aws:s3:::windsor-bootstrapper-590183787785/bootstrapper.zip
+                Resource: !Sub "arn:aws:s3:::${BucketName}/bootstrapper.zip"
 
-  GitHubCodeBuildProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: !Sub "GitHub-${StackName}"
-      Description: Build project for compiling and testing code
-      Source:
-        Type: GITHUB
-        Location: !Ref Repository
-        BuildSpec: !Ref BuildSpec
-        Auth:
-          Type: OAUTH
-          Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:GitHubAccess-JKiZjD"
-      SourceVersion: !Ref SourceVersion
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-        EnvironmentVariables:
-          - Name: ENV
-            Value: production
-            Type: PLAINTEXT
-          - Name: GITHUB_TOKEN
-            Value: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:GitHubAccess-JKiZjD"
-            Type: SECRETS_MANAGER
-          - Name: BUCKET_NAME
-            Value: !Ref BucketName
-            Type: PLAINTEXT
-      Artifacts:
-        Type: NO_ARTIFACTS
-      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
-      LogsConfig:
-        CloudWatchLogs:
-          Status: ENABLED
-          GroupName: !Sub "/aws/codebuild/${StackName}"
+  # GitHubCodeBuildProject:
+  #   Type: AWS::CodeBuild::Project
+  #   Properties:
+  #     Name: !Sub "GitHub-${StackName}"
+  #     Description: Build project for compiling and testing code
+  #     Source:
+  #       Type: GITHUB
+  #       Location: !Ref Repository
+  #       BuildSpec: !Ref BuildSpec
+  #       Auth:
+  #         Type: OAUTH
+  #         Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:GitHubAccess-JKiZjD"
+  #     SourceVersion: !Ref SourceVersion
+  #     Environment:
+  #       Type: LINUX_CONTAINER
+  #       ComputeType: BUILD_GENERAL1_SMALL
+  #       Image: aws/codebuild/standard:5.0
+  #       EnvironmentVariables:
+  #         - Name: ENV
+  #           Value: production
+  #           Type: PLAINTEXT
+  #         - Name: GITHUB_TOKEN
+  #           Value: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:GitHubAccess-JKiZjD"
+  #           Type: SECRETS_MANAGER
+  #         - Name: BUCKET_NAME
+  #           Value: !Ref BucketName
+  #           Type: PLAINTEXT
+  #     Artifacts:
+  #       Type: NO_ARTIFACTS
+  #     ServiceRole: !GetAtt GitHubCodeBuildServiceRole.Arn
+  #     LogsConfig:
+  #       CloudWatchLogs:
+  #         Status: ENABLED
+  #         GroupName: !Sub "/aws/codebuild/${StackName}"
 
-  GitHubCodeBuildServiceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: codebuild.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AWSCodeBuildDeveloperAccess
-      Policies:
-        - PolicyName: CodeBuildLogsPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${StackName}:*"
-        - PolicyName: SecretsManagerAccessPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - secretsmanager:GetSecretValue
-                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:GitHubAccess-JKiZjD"
-        - PolicyName: S3AccessPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:*
-                Resource:
-                  - "*"
+  # GitHubCodeBuildServiceRole:
+  #   Type: AWS::IAM::Role
+  #   Properties:
+  #     AssumeRolePolicyDocument:
+  #       Version: '2012-10-17'
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal:
+  #             Service: codebuild.amazonaws.com
+  #           Action: sts:AssumeRole
+  #     ManagedPolicyArns:
+  #       - arn:aws:iam::aws:policy/AWSCodeBuildDeveloperAccess
+  #     Policies:
+  #       - PolicyName: CodeBuildLogsPolicy
+  #         PolicyDocument:
+  #           Version: '2012-10-17'
+  #           Statement:
+  #             - Effect: Allow
+  #               Action:
+  #                 - logs:CreateLogGroup
+  #                 - logs:CreateLogStream
+  #                 - logs:PutLogEvents
+  #               Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${StackName}:*"
+  #       - PolicyName: SecretsManagerAccessPolicy
+  #         PolicyDocument:
+  #           Version: '2012-10-17'
+  #           Statement:
+  #             - Effect: Allow
+  #               Action:
+  #                 - secretsmanager:GetSecretValue
+  #               Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:GitHubAccess-JKiZjD"
+  #       - PolicyName: S3AccessPolicy
+  #         PolicyDocument:
+  #           Version: '2012-10-17'
+  #           Statement:
+  #             - Effect: Allow
+  #               Action:
+  #                 - s3:*
+  #               Resource:
+  #                 - "*"
