@@ -27,5 +27,5 @@ phases:
   post_build:
     commands:
       - windsor down
-      - aws s3 rb s3://mtv-bootstrapper-bucket --force
+      - aws s3 rb s3://mtv-bootstrapper-bucket-2 --force
       - aws s3 ls
