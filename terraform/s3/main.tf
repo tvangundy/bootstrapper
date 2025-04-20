@@ -24,7 +24,7 @@ resource "aws_s3_bucket" "bootstrapper" {
 }
 
 resource "aws_s3_bucket_public_access_block" "backend" {
-  bucket = aws_s3_bucket.backend.id
+  bucket = aws_s3_bucket.bootstrapper.id
 
   block_public_acls   = true
   block_public_policy = true
@@ -33,5 +33,5 @@ resource "aws_s3_bucket_public_access_block" "backend" {
 }
 
 output "backend_bucket_name" {
-  value = aws_s3_bucket.backend.id
+  value = aws_s3_bucket.bootstrapper.id
 }
