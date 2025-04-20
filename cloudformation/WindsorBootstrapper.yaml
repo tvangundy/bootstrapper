@@ -74,7 +74,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: arn:aws:logs:us-east-2:590183787785:log-group:/aws/codebuild/${StackName}:*
+                Resource: !Sub "arn:aws:logs:us-east-2:590183787785:log-group:/aws/codebuild/${StackName}:*"
         - PolicyName: SecretsManagerAccessPolicy
           PolicyDocument:
             Version: '2012-10-17'
