@@ -88,6 +88,8 @@ Resources:
                   - s3:PutBucketTagging
                   - s3:GetBucketVersioning
                   - s3:PutBucketVersioning
+                  - s3:PutBucketEncryption
+                  - s3:GetBucketEncryption
                 Resource:
                   - arn:aws:s3:::mtv-bootstrapper-bucket-2
                   - arn:aws:s3:::mtv-bootstrapper-bucket-2/*
