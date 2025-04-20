@@ -2,8 +2,8 @@ provider "aws" {
   region = "us-east-1" // Specify your desired region
 }
 
-resource "aws_s3_bucket" "backend" {
-  bucket = "mtv-backend-bucket" // Replace with your unique bucket name
+resource "aws_s3_bucket" "bootstrapper" {
+  bucket = "mtv-bootstrapper-bucket" // Replace with your unique bucket name
 
   versioning {
     enabled = true
