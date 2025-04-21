@@ -18,7 +18,7 @@ Parameters:
     Description: The name of the CloudFormation stack to create
   SourceVersion:
     Type: String
-    Default: bootstrapper-poc
+    Default: main
     Description: The version of the source code to use
 Resources:
   GitHubCodeBuildProject:
