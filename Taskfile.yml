@@ -12,7 +12,7 @@ vars:
   REPOSITORY: https://github.com/tvangundy/bootstrapper.git
   BUILD_SPEC: cloudformation/buildspec.yml
   STACK_NAME: WindsorBootstrapper
-  CODEBUILD_PROJECT_NAME: S3-WindsorBootstrapper
+  CODEBUILD_PROJECT_NAME: WindsorBootstrapper
   TEMPLATE_FILE: WindsorBootstrapper.yaml
 tasks:
 
