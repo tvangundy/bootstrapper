@@ -3,6 +3,27 @@ This is the Proof of Concept repository for the windsor bootstrapper.
 
 The main purpose of the bootstrapper will be to deploy infrastructure to the cloud providers using with windsor cli.  
 
+# Azure
+
+Install azure with brew,
+
+```
+brew update && brew install azure-cli
+```
+
+Setup azure-devops
+```
+  az extension add --name azure-devops
+```
+Verify devops is working
+```
+ az devops --help
+ ```
+
+Setup an organization and project
+https://dev.azure.com/windsor-bootstrapper/Windsor%20Bootstrapper
+
+
 # AWS Provider
 The bootstrapper defined in this repository supports bootstrapping to Amazon Web Services using a CloudFormation Template and a CodeBuild buildspec.  The buildspec sets up the environment with all the necesssary tools (including the windsor cli) and code to deploy infrastructure to the cloud.
 

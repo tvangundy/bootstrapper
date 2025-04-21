@@ -10,6 +10,8 @@ vars:
   AQUA_VERSION: 2.49.0-0
   REPOSITORY: https://github.com/tvangundy/bootstrapper.git
   BUILD_SPEC: cloudformation/buildspec.yml
+  AZURE_PIPELINE_YAML: azure/azure-pipelines.yml
+  AZURE_ORGANIZATION: tvangundy
   STACK_NAME: WindsorBootstrapper
   CODEBUILD_PROJECT_NAME: WindsorBootstrapper
   TEMPLATE_FILE: S3-WindsorBootstrapper.yaml
@@ -79,6 +81,69 @@ tasks:
       - |
         zip -r bootstrapper.zip . -x '*/.*'
         aws s3 cp bootstrapper.zip s3://{{.CODE_BUCKET_NAME}}/bootstrapper.zip
+
+  az-list-storage-accounts:
+    cmds:
+      - |
+        az storage account list --query "[].{Name:name}" --output table
+
+        # az storage account list --output table
+  az-deploy-azure:
+    cmds:
+      - |
+        cd azure/terraform; \
+        terraform init; \
+        terraform apply -auto-approve
+
+  az-destroy-azure:
+    cmds:
+      - |
+        cd azure/terraform; \
+        terraform destroy -auto-approve
+
+  az-create-project:
+    cmds:
+      - |
+        az devops project create --name {{.STACK_NAME}} --organization {{.AZURE_ORGANIZATION}}
+
+  az-create-pipeline:
+    cmds:
+      - |
+        az devops project create --name {{.STACK_NAME}} --organization {{.AZURE_ORGANIZATION}};
+        az pipelines create --name {{.STACK_NAME}} \ 
+          --project {{.CODEBUILD_PROJECT_NAME}} \
+          --repository {{.REPOSITORY}} \
+          --branch {{.BRANCH}} \
+          --yaml-path {{.AZURE_PIPELINE_YAML}}
+
+  az-list-azure-resources:
+    cmds:
+      - |
+        az resource list --resource-group example-resources --output table
+
+  deploy-azure:
+    cmds:
+      - |
+        cd azure/terraform; \
+        terraform init; \
+        terraform apply -auto-approve
+
+  destroy-azure:
+    cmds:
+      - |
+        cd azure/terraform; \
+        terraform destroy -auto-approve
+
+  azure-pipeline:
+    cmds:
+      - |
+        az devops project create --name ExampleProject --organization https://dev.azure.com/YourOrgName; \
+        az pipelines create --name ExamplePipeline --project ExampleProject --repository https://github.com/your/repo --branch main --yaml-path azure-pipelines.yml
+
+  list-azure-resources:
+    cmds:
+      - |
+        az resource list --resource-group example-resources --output table
 
   default:
     cmds:
