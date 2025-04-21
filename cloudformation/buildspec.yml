@@ -33,7 +33,7 @@ phases:
       - |
         if [ "${ACTION}" = "down" ]; then
           windsor down
-          aws s3 rb s3://mtv-bootstrapper-test-bucket --force
+          aws s3 rb s3://windsor-bootstrapper-test-bucket --force
         else
           windsor up
         fi
