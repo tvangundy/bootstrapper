@@ -12,10 +12,10 @@ vars:
   BUILD_SPEC: cloudformation/buildspec.yml
   STACK_NAME: WindsorBootstrapper
   CODEBUILD_PROJECT_NAME: WindsorBootstrapper
-  #TEMPLATE_FILE: S3-WindsorBootstrapper.yaml
-  TEMPLATE_FILE: Github-WindsorBootstrapper.yaml
-tasks:
+  TEMPLATE_FILE: S3-WindsorBootstrapper.yaml
+  # TEMPLATE_FILE: Github-WindsorBootstrapper.yaml
 
+tasks:
   deploy-cloudformation:
     cmds:
       - |
@@ -82,5 +82,16 @@ tasks:
 
   default:
     cmds:
-      - task --list-all
+      - echo "S3 Approach Only"
+      - echo ""
+      - echo "task create-bucket"
+      - echo "task upload-source"
+      - echo ""
+      - echo "Github/S3 Approaches"
+      - echo ""
+      - echo "task deploy-cloudformation"
+      - echo "task start-codebuild-up"
+      - echo "task start-codebuild-down"
+      - echo "task debug-cloudformation"
+      - echo "task destroy-cloudformation"
     silent: true
