@@ -3,7 +3,7 @@
 version: '3'
 
 vars:
-  BUCKET_NAME: windsor-bootstrapper-bucket
+  CODE_BUCKET_NAME: windsor-bootstrapper-bucket
   OS: linux
   ARCH: amd64
   WINDSOR_VERSION: 0.5.6
@@ -13,6 +13,7 @@ vars:
   BUILD_SPEC: cloudformation/buildspec.yml
   STACK_NAME: WindsorBootstrapper
   CODEBUILD_PROJECT_NAME: S3-WindsorBootstrapper
+  TEMPLATE_FILE: WindsorBootstrapper.yaml
 tasks:
 
   deploy-cloudformation:
@@ -20,14 +21,14 @@ tasks:
       - |
         cd cloudformation; \
         aws cloudformation deploy \
-        --template-file WindsorBootstrapper.yaml \
+        --template-file {{.TEMPLATE_FILE}} \
         --stack-name {{.STACK_NAME}} \
         --capabilities CAPABILITY_NAMED_IAM \
         --parameter-overrides \
           Repository={{.REPOSITORY}} \
           BuildSpec={{.BUILD_SPEC}} \
-          BucketName={{.BUCKET_NAME}} \
-          StackName={{.STACK_NAME}}
+          BucketName={{.CODE_BUCKET_NAME}} \
+          ProjectName={{.CODEBUILD_PROJECT_NAME}}
 
   start-codebuild-up:
     cmds:
@@ -71,13 +72,13 @@ tasks:
   create-bucket:
     cmds:
       - |
-        aws s3api create-bucket --bucket {{.BUCKET_NAME}} --region us-east-2 --create-bucket-configuration LocationConstraint=us-east-2
+        aws s3api create-bucket --bucket {{.CODE_BUCKET_NAME}} --region us-east-2 --create-bucket-configuration LocationConstraint=us-east-2
         
   upload-source:
     cmds:
       - |
         zip -r bootstrapper.zip . -x '*/.*'
-        aws s3 cp bootstrapper.zip s3://{{.BUCKET_NAME}}/bootstrapper.zip
+        aws s3 cp bootstrapper.zip s3://{{.CODE_BUCKET_NAME}}/bootstrapper.zip
 
   default:
     cmds:
