@@ -12,6 +12,7 @@ vars:
   REPOSITORY: https://github.com/tvangundy/bootstrapper.git
   BUILD_SPEC: cloudformation/buildspec.yml
   STACK_NAME: WindsorBootstrapper
+  CODEBUILD_PROJECT_NAME: S3-WindsorBootstrapper
 tasks:
 
   deploy-cloudformation:
@@ -33,7 +34,7 @@ tasks:
       - |
         cd cloudformation; \
         aws codebuild start-build \
-          --project-name {{.STACK_NAME}} \
+          --project-name {{.CODEBUILD_PROJECT_NAME}} \
           --environment-variables-override \
             name=OS,value={{.OS}} \
             name=ARCH,value={{.ARCH}} \
@@ -46,7 +47,7 @@ tasks:
       - |
         cd cloudformation; \
         aws codebuild start-build \
-          --project-name {{.STACK_NAME}} \
+          --project-name {{.CODEBUILD_PROJECT_NAME}} \
           --environment-variables-override \
             name=OS,value={{.OS}} \
             name=ARCH,value={{.ARCH}} \
