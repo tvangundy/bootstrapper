@@ -1,5 +1,13 @@
 version: v1alpha1
 contexts:
+  aws:
+    blueprint: full
+    aws:
+      enabled: true
+    terraform:
+      enabled: true
+      backend:
+        type: local
   local:
     aws:
       enabled: true
