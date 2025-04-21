@@ -36,7 +36,6 @@ tasks:
         aws codebuild start-build \
           --project-name {{.STACK_NAME}} \
           --environment-variables-override \
-            name=BUCKET_NAME,value={{.BUCKET_NAME}} \
             name=OS,value={{.OS}} \
             name=ARCH,value={{.ARCH}} \
             name=WINDSOR_VERSION,value={{.WINDSOR_VERSION}} \
@@ -50,7 +49,6 @@ tasks:
         aws codebuild start-build \
           --project-name {{.STACK_NAME}} \
           --environment-variables-override \
-            name=BUCKET_NAME,value={{.BUCKET_NAME}} \
             name=OS,value={{.OS}} \
             name=ARCH,value={{.ARCH}} \
             name=WINDSOR_VERSION,value={{.WINDSOR_VERSION}} \

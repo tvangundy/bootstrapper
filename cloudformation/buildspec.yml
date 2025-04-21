@@ -2,7 +2,6 @@ version: 0.2
 
 env:
   variables:
-    BUCKET_NAME: bootstrapper-bucket
     OS: linux
     ARCH: amd64
     WINDSOR_VERSION: 0.5.6
@@ -34,7 +33,7 @@ phases:
       - |
         if [ "${ACTION}" = "down" ]; then
           windsor down
-          aws s3 rb s3://${BUCKET_NAME} --force
+          aws s3 rb s3://bootstrapper-test-bucket --force
         else
           windsor up
         fi
