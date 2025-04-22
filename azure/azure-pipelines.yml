@@ -36,7 +36,8 @@ steps:
   displayName: 'Pre-build commands'
 
 - script: |
-    windsor up
+    # windsor up
+    ls -la
   displayName: 'Windsor up'
 
 # - task: AzureCLI@2
