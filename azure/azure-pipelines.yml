@@ -38,6 +38,10 @@ steps:
 - script: |
     # windsor up
     ls -la
+    cd terraform
+    terraform init
+    terraform plan
+    terraform apply
   displayName: 'Windsor up'
 
 # - task: AzureCLI@2
