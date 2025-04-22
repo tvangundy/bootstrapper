@@ -42,9 +42,9 @@ steps:
 
     cd terraform/blob
     windsor env
-    # terraform init
-    # terraform plan
-    # terraform apply
+    terraform init
+    terraform plan
+    terraform apply
   displayName: 'Windsor up'
 
 # - task: AzureCLI@2
