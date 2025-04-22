@@ -18,6 +18,7 @@ variable "container_name" {
 variable "azure_subscription_id" {
   description = "Azure Subscription ID"
   type        = string
+  default     = "e8e1aa1e-a6f9-46e1-887b-e73ee421128e"
 }
 
 resource "azurerm_storage_account" "this" {
