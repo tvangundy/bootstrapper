@@ -40,7 +40,7 @@ steps:
     ls -la
     $(windsor env)
 
-    cd terraform
+    cd terraform/blob
     windsor env
     # terraform init
     # terraform plan
