@@ -36,8 +36,8 @@ resource "azuredevops_variable_group" "bootstrapper" {
   allow_access = true
 
   variable {
-    name  = "FOO"
-    value = "BAR"
+    name  = "TF_VAR_azure_subscription_id"
+    value = var.azure_subscription_id
   }
 }
 
