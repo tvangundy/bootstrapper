@@ -14,5 +14,5 @@ sources:
   ref:
     branch: main
 terraform:
-- path: s3
+- path: blob
 kustomize: []
