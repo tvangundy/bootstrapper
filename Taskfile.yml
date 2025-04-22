@@ -11,7 +11,7 @@ vars:
   REPOSITORY: https://github.com/tvangundy/bootstrapper.git
   BUILD_SPEC: cloudformation/buildspec.yml
   
-  AZURE_PIPELINE_YAML: azure/azure-pipelines.yml
+  AZURE_PIPELINE_YAML: /azure/azure-pipelines.yml
   AZURE_ORGANIZATION: windsor-bootstrapper
   AZURE_PROJECT_NAME: WindsorBootstrapper
   AZURE_SUBSCRIPTION: "\"Azure subscription 1\""
@@ -25,7 +25,7 @@ vars:
   # TEMPLATE_FILE: Github-WindsorBootstrapper.yaml
 
   RESOURCE_GROUP: WindsorBootstrapper
-  BRANCH: main
+  BRANCH: azure
 
 tasks:
   deploy-cloudformation:
@@ -162,21 +162,6 @@ tasks:
         az repos list --organization https://dev.azure.com/{{.AZURE_ORGANIZATION}} \
           --project {{.CODEBUILD_PROJECT_NAME}}
 
-  az-upload-source:
-    cmds:
-      - |
-        az storage blob upload --account-name {{.STORAGE_ACCOUNT_NAME}} \ 
-          --container-name {{.CONTAINER_NAME}} \
-          --file bootstrapper.zip \
-          --name bootstrapper.zip
-        az storage blob upload \
-          --account-name {{.STORAGE_ACCOUNT_NAME}}  \
-          --container-name {{.CONTAINER_NAME}} \
-          --name {{.AZURE_PIPELINE_YAML}} \
-          --file {{.AZURE_PIPELINE_YAML}} \
-          --auth-mode key \
-          --account-key {{.PRIMARY_ACCESS_KEY}}
-
   deploy-azure:
     cmds:
       - |
@@ -190,26 +175,40 @@ tasks:
         cd azure/terraform; \
         terraform destroy -auto-approve
 
-  azure-pipeline:
-    cmds:
-      - |
-        az devops project create --name ExampleProject --organization https://dev.azure.com/YourOrgName; \
-        az pipelines create --name ExamplePipeline --project ExampleProject --repository https://github.com/your/repo --branch main --yaml-path azure-pipelines.yml
-
   list-azure-resources:
     cmds:
       - |
         az resource list --resource-group example-resources --output table
 
+  list-azure-build-definitions:
+    cmds:
+      - |
+        az pipelines list --organization https://dev.azure.com/{{.AZURE_ORGANIZATION}} \
+          --project {{.CODEBUILD_PROJECT_NAME}}
+
   az-run-pipeline:
     cmds:
       - |
         az pipelines run --name "WindsorBootstrapper Build Definition" \
+          --id 12 \
           --organization https://dev.azure.com/{{.AZURE_ORGANIZATION}} \
           --project {{.CODEBUILD_PROJECT_NAME}} \
           --branch {{.BRANCH}} \
-          --folder-path {{.AZURE_PIPELINE_YAML}} \
-          --variables storageAccountName={{.STORAGE_ACCOUNT_NAME}},containerName={{.CONTAINER_NAME}},primaryAccessKey={{.PRIMARY_ACCESS_KEY}}
+          --folder-path {{.AZURE_PIPELINE_YAML}} 
+
+  az-create-service-principal:
+    cmds:
+      - |
+        az ad sp create-for-rbac --name "WindsorBootstrapperServicePrincipal" \
+          --role "Contributor" \
+          --scopes "/subscriptions/e8e1aa1e-a6f9-46e1-887b-e73ee421128e"
+
+  az-use-tenant-scope:
+    cmds:
+      - |
+        az ad sp create-for-rbac --name "WindsorBootstrapperServicePrincipal" \
+          --role "Contributor" \
+          --scopes "/subscriptions/e8e1aa1e-a6f9-46e1-887b-e73ee421128e"
 
   default:
     cmds:

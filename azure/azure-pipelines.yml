@@ -35,6 +35,7 @@ steps:
   displayName: 'Pre-build commands'
 
 - script: |
+    az login
     echo "Executing windsor action ${ACTION}"
     if [ "${ACTION}" = "down" ]; then
       windsor down

@@ -25,6 +25,23 @@ https://dev.azure.com/windsor-bootstrapper/Windsor%20Bootstrapper
 
 https://dev.azure.com/windsor-bootstrapper
 
+## Create Service Principal
+
+This gives the pipeline permission to run windsor up
+
+```
+task  az-create-service-principal:
+
+Creating 'Contributor' role assignment under scope '/subscriptions/e8e1aa1e-a6f9-46e1-887b-e73ee421128e'
+The output includes credentials that you must protect. Be sure that you do not include these credentials in your code or check the credentials into your source control. For more information, see https://aka.ms/azadsp-cli
+{
+  "appId": "XXXXXXXXXXXXXXXX",
+  "displayName": "XXXXXXXXXXXXXXXX",
+  "password": "XXXXXXXXXXXXXXXX",
+  "tenant": "XXXXXXXXXXXXXXXX"
+}
+```
+
 # AWS Provider
 The bootstrapper defined in this repository supports bootstrapping to Amazon Web Services using a CloudFormation Template and a CodeBuild buildspec.  The buildspec sets up the environment with all the necesssary tools (including the windsor cli) and code to deploy infrastructure to the cloud.
 
