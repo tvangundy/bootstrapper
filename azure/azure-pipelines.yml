@@ -31,7 +31,7 @@ steps:
 - script: |
     windsor version
     terraform version
-    windsor init aws
+    windsor init azure
   displayName: 'Pre-build commands'
 
 - script: |
