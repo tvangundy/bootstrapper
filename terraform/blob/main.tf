@@ -21,6 +21,11 @@ variable "azure_subscription_id" {
   default     = "e8e1aa1e-a6f9-46e1-887b-e73ee421128e"
 }
 
+resource "azurerm_resource_group" "bootstrapper" {
+  name     = "bootstrapper-resources"
+  location = "East US"
+}
+
 resource "azurerm_storage_account" "this" {
   name                     = var.storage_account_name
   resource_group_name      = azurerm_resource_group.bootstrapper.name
