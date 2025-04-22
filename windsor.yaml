@@ -8,11 +8,16 @@ contexts:
       enabled: true
       backend:
         type: local
+  azure:
+    terraform:
+      enabled: true
+      backend:
+        type: local
   local:
+    blueprint: full
     aws:
       enabled: true
       aws_profile: public
-    blueprint: full
     docker:
       enabled: true
       registries:

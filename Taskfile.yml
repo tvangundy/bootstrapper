@@ -10,12 +10,22 @@ vars:
   AQUA_VERSION: 2.49.0-0
   REPOSITORY: https://github.com/tvangundy/bootstrapper.git
   BUILD_SPEC: cloudformation/buildspec.yml
+  
   AZURE_PIPELINE_YAML: azure/azure-pipelines.yml
-  AZURE_ORGANIZATION: tvangundy
+  AZURE_ORGANIZATION: windsor-bootstrapper
+  AZURE_PROJECT_NAME: WindsorBootstrapper
+  AZURE_SUBSCRIPTION: "\"Azure subscription 1\""
+  STORAGE_ACCOUNT_NAME: windsorbootstrapperstora
+  CONTAINER_NAME: windsorbootstrapper
+  PRIMARY_ACCESS_KEY: "1234567890"
+
   STACK_NAME: WindsorBootstrapper
   CODEBUILD_PROJECT_NAME: WindsorBootstrapper
   TEMPLATE_FILE: S3-WindsorBootstrapper.yaml
   # TEMPLATE_FILE: Github-WindsorBootstrapper.yaml
+
+  RESOURCE_GROUP: WindsorBootstrapper
+  BRANCH: main
 
 tasks:
   deploy-cloudformation:
@@ -82,18 +92,42 @@ tasks:
         zip -r bootstrapper.zip . -x '*/.*'
         aws s3 cp bootstrapper.zip s3://{{.CODE_BUCKET_NAME}}/bootstrapper.zip
 
+  az-show-account:
+    cmds:
+      - |
+        az account show
+
+  az-list-pipelines:
+    cmds:
+      - |
+        az pipelines list --organization https://dev.azure.com/{{.AZURE_ORGANIZATION}} --project {{.AZURE_PROJECT_NAME}}
+
   az-list-storage-accounts:
     cmds:
       - |
         az storage account list --query "[].{Name:name}" --output table
 
-        # az storage account list --output table
+  az-list-service-connections:
+    cmds:
+      - |
+        az devops service-endpoint list --organization https://dev.azure.com/{{.AZURE_ORGANIZATION}} --project "{{.AZURE_PROJECT_NAME}}" --query "[].{Name:name, Id:id}" --output table
+
+  az-list-project-ids:
+    cmds:
+      - |
+        az devops project show --project WindsorBootstrapper --organization https://dev.azure.com/windsor-bootstrapper --query id --output tsv
+
   az-deploy-azure:
     cmds:
       - |
         cd azure/terraform; \
         terraform init; \
         terraform apply -auto-approve
+
+  az-account-show-subscription-id:
+    cmds:
+      - |
+        az account show --query id --output tsv
 
   az-destroy-azure:
     cmds:
@@ -104,22 +138,44 @@ tasks:
   az-create-project:
     cmds:
       - |
-        az devops project create --name {{.STACK_NAME}} --organization {{.AZURE_ORGANIZATION}}
+        az devops project create --name {{.STACK_NAME}} \
+          --organization https://dev.azure.com/{{.AZURE_ORGANIZATION}}
 
   az-create-pipeline:
     cmds:
       - |
-        az devops project create --name {{.STACK_NAME}} --organization {{.AZURE_ORGANIZATION}};
         az pipelines create --name {{.STACK_NAME}} \ 
           --project {{.CODEBUILD_PROJECT_NAME}} \
+          --subscription {{.AZURE_SUBSCRIPTION}} \
+          --organization https://dev.azure.com/{{.AZURE_ORGANIZATION}} \
           --repository {{.REPOSITORY}} \
           --branch {{.BRANCH}} \
-          --yaml-path {{.AZURE_PIPELINE_YAML}}
+          --yaml-path {{.AZURE_PIPELINE_YAML}} --debug
 
   az-list-azure-resources:
     cmds:
       - |
         az resource list --resource-group example-resources --output table
+  az-list-repos:
+    cmds:
+      - |
+        az repos list --organization https://dev.azure.com/{{.AZURE_ORGANIZATION}} \
+          --project {{.CODEBUILD_PROJECT_NAME}}
+
+  az-upload-source:
+    cmds:
+      - |
+        az storage blob upload --account-name {{.STORAGE_ACCOUNT_NAME}} \ 
+          --container-name {{.CONTAINER_NAME}} \
+          --file bootstrapper.zip \
+          --name bootstrapper.zip
+        az storage blob upload \
+          --account-name {{.STORAGE_ACCOUNT_NAME}}  \
+          --container-name {{.CONTAINER_NAME}} \
+          --name {{.AZURE_PIPELINE_YAML}} \
+          --file {{.AZURE_PIPELINE_YAML}} \
+          --auth-mode key \
+          --account-key {{.PRIMARY_ACCESS_KEY}}
 
   deploy-azure:
     cmds:
@@ -144,6 +200,16 @@ tasks:
     cmds:
       - |
         az resource list --resource-group example-resources --output table
+
+  az-run-pipeline:
+    cmds:
+      - |
+        az pipelines run --name WindsorBootstrapper \
+          --organization https://dev.azure.com/{{.AZURE_ORGANIZATION}} \
+          --project {{.AZURE_PROJECT_NAME}} \
+          --branch {{.BRANCH}} \
+          --file azure/azure-pipelines.yml \
+          --variables storageAccountName={{.STORAGE_ACCOUNT_NAME}},containerName={{.CONTAINER_NAME}},primaryAccessKey={{.PRIMARY_ACCESS_KEY}}
 
   default:
     cmds:

@@ -10,3 +10,7 @@ contexts/**/.talos/
 contexts/**/.aws/
 
 bootstrapper.zip
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl

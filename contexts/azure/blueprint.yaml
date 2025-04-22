@@ -1,0 +1,18 @@
+kind: Blueprint
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: azure
+  description: This blueprint outlines resources in the azure context
+repository:
+  url: ""
+  ref:
+    branch: main
+  secretName: flux-system
+sources:
+- name: core
+  url: github.com/windsorcli/core
+  ref:
+    branch: main
+terraform:
+- path: s3
+kustomize: []

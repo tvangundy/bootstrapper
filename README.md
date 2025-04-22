@@ -23,6 +23,7 @@ Verify devops is working
 Setup an organization and project
 https://dev.azure.com/windsor-bootstrapper/Windsor%20Bootstrapper
 
+https://dev.azure.com/windsor-bootstrapper
 
 # AWS Provider
 The bootstrapper defined in this repository supports bootstrapping to Amazon Web Services using a CloudFormation Template and a CodeBuild buildspec.  The buildspec sets up the environment with all the necesssary tools (including the windsor cli) and code to deploy infrastructure to the cloud.
