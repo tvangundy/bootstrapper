@@ -204,11 +204,11 @@ tasks:
   az-run-pipeline:
     cmds:
       - |
-        az pipelines run --name WindsorBootstrapper \
+        az pipelines run --name "WindsorBootstrapper Build Definition" \
           --organization https://dev.azure.com/{{.AZURE_ORGANIZATION}} \
-          --project {{.AZURE_PROJECT_NAME}} \
+          --project {{.CODEBUILD_PROJECT_NAME}} \
           --branch {{.BRANCH}} \
-          --file azure/azure-pipelines.yml \
+          --folder-path {{.AZURE_PIPELINE_YAML}} \
           --variables storageAccountName={{.STORAGE_ACCOUNT_NAME}},containerName={{.CONTAINER_NAME}},primaryAccessKey={{.PRIMARY_ACCESS_KEY}}
 
   default:

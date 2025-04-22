@@ -29,13 +29,13 @@ resource "azuredevops_project" "bootstrapper" {
   work_item_template = "Agile"
 }
 
-resource "azuredevops_git_repository" "bootstrapper" {
-  project_id = azuredevops_project.bootstrapper.id
-  name       = "WindsorBootstrapper"
-  initialization {
-    init_type = "Clean"
-  }
-}
+# resource "azuredevops_git_repository" "bootstrapper" {
+#   project_id = azuredevops_project.bootstrapper.id
+#   name       = "WindsorBootstrapperRepository"
+#   initialization {
+#     init_type = "Clean"
+#   }
+# }
 
 resource "azuredevops_variable_group" "bootstrapper" {
   project_id   = azuredevops_project.bootstrapper.id
@@ -54,11 +54,11 @@ resource "azuredevops_build_definition" "bootstrapper" {
   name       = "WindsorBootstrapper Build Definition"
 
   repository {
-    repo_type             = "Git"
-    repo_id               = azuredevops_git_repository.bootstrapper.id
+    repo_type             = "GitHub"
+    repo_id               = "tvangundy/bootstrapper"  # GitHub repository
     branch_name           = "main"  # Replace with the actual branch name if different
-    yml_path              = "azure/azure-pipelines.yml"
-    service_connection_id = azuredevops_serviceendpoint_azurerm.bootstrapper.id
+    yml_path              = "/azure/azure-pipelines.yml"
+    service_connection_id = azuredevops_serviceendpoint_github.bootstrapper.id
   }
 
   ci_trigger {
@@ -79,6 +79,16 @@ resource "azuredevops_serviceendpoint_azurerm" "bootstrapper" {
   azurerm_subscription_name = "Azure subscription 1"
 }
 
+resource "azuredevops_serviceendpoint_github" "bootstrapper" {
+  project_id            = azuredevops_project.bootstrapper.id
+  service_endpoint_name = "Bootstrapper GitHub Service Connection"
+  description           = "Service connection to GitHub for Windsor Bootstrapper"
+
+  auth_personal {
+    personal_access_token = var.github_pat
+  }  
+}
+
 variable "azure_devops_pat" {
   description = "Personal Access Token for Azure DevOps"
   type        = string
@@ -88,4 +98,10 @@ variable "azure_devops_pat" {
 variable "azure_subscription_id" {
   description = "Azure Subscription ID"
   type        = string
+}
+
+variable "github_pat" {
+  description = "Personal Access Token for GitHub"
+  type        = string
+  sensitive   = true
 }   
