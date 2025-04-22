@@ -29,14 +29,6 @@ resource "azuredevops_project" "bootstrapper" {
   work_item_template = "Agile"
 }
 
-# resource "azuredevops_git_repository" "bootstrapper" {
-#   project_id = azuredevops_project.bootstrapper.id
-#   name       = "WindsorBootstrapperRepository"
-#   initialization {
-#     init_type = "Clean"
-#   }
-# }
-
 resource "azuredevops_variable_group" "bootstrapper" {
   project_id   = azuredevops_project.bootstrapper.id
   name         = "Example Pipeline Variables"
@@ -68,14 +60,14 @@ resource "azuredevops_build_definition" "bootstrapper" {
 
 resource "azuredevops_serviceendpoint_azurerm" "bootstrapper" {
   project_id            = azuredevops_project.bootstrapper.id
-  service_endpoint_name = "Bootstrapper AzureRM Service Connection"
+  service_endpoint_name = "WindsorBootstrapperAzureRM"
   description           = "Service connection to Azure for Windsor Bootstrapper"
   credentials {
-    serviceprincipalid  = var.azure_devops_pat
-    serviceprincipalkey = var.azure_subscription_id
+    serviceprincipalid  = var.service_principal_id
+    serviceprincipalkey = var.service_principal_key
   }
-  azurerm_spn_tenantid  = "dd9a39ee-95fd-4511-9493-f8a58aca7970"
-  azurerm_subscription_id = var.azure_subscription_id
+  azurerm_spn_tenantid      = var.tenant_id
+  azurerm_subscription_id   = var.azure_subscription_id
   azurerm_subscription_name = "Azure subscription 1"
 }
 
@@ -93,6 +85,22 @@ variable "azure_devops_pat" {
   description = "Personal Access Token for Azure DevOps"
   type        = string
   sensitive   = true
+}
+
+variable "service_principal_id" {
+  description = "Service Principal ID (AppId)"
+  type        = string
+}
+
+variable "service_principal_key" {
+  description = "Service Principal Key (Password)"
+  type        = string
+  sensitive   = true
+}
+
+variable "tenant_id" {
+  description = "Azure Tenant ID"
+  type        = string
 }
 
 variable "azure_subscription_id" {
