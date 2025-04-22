@@ -34,15 +34,20 @@ steps:
     windsor init azure
   displayName: 'Pre-build commands'
 
-- script: |
-    az login
-    echo "Executing windsor action ${ACTION}"
-    if [ "${ACTION}" = "down" ]; then
-      windsor down
-      az storage account delete --name windsorbootstrappertest --yes
-    else
-      windsor up
-    fi
-    az storage account list
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: 'WindsorBootstrapperAzureRM'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az login --service-principal -u $(appId) -p $(password) --tenant $(tenant)
+      echo "Executing windsor action ${ACTION}"
+      if [ "${ACTION}" = "down" ]; then
+        windsor down
+        az storage account delete --name windsorbootstrappertest --yes
+      else
+        windsor up
+      fi
+      az storage account list
   displayName: 'Build commands'
   
