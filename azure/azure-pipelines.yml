@@ -41,7 +41,7 @@ steps:
     scriptType: 'bash'
     scriptLocation: 'inlineScript'
     inlineScript: |
-      az login --service-principal -u $(appId) -p $(password) --tenant $(tenant)
+      az login --service-principal -u $(appId) -p $(clientSecret) --tenant $(tenantId)
       echo "Executing windsor action ${ACTION}"
       if [ "${ACTION}" = "down" ]; then
         windsor down
