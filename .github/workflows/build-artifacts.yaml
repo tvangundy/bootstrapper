@@ -19,16 +19,6 @@ jobs:
           echo "Repo Name: ${{ github.event.client_payload.repo_name }}"
           echo "Release: ${{ github.event.client_payload.release }}"
 
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.event.client_payload.repo_owner }}/${{ github.event.client_payload.repo_name }}
-          token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}
-
-      - name: Print out folders
-        run: |
-          ls -la
-
   # build-and-test:
   #   strategy:
   #     matrix:
