@@ -34,12 +34,12 @@ jobs:
   build-artifacts:
     runs-on: ubuntu-latest
     steps:
-      - name: Print out the inputs
-        run: |
-          echo "Repo Owner: ${{ inputs.repo_owner }}"
-          echo "Repo Name: ${{ inputs.repo_name }}"
-          echo "Release: ${{ inputs.release }}"
-          echo "Token: ${{ inputs.token }}"
+      # - name: Print out the inputs
+      #   run: |
+      #     echo "Repo Owner: ${{ inputs.repo_owner }}"
+      #     echo "Repo Name: ${{ inputs.repo_name }}"
+      #     echo "Release: ${{ inputs.release }}"
+      #     echo "Token: ${{ inputs.token }}"
           
       - name: Print out the inputs
         run: |
@@ -60,9 +60,14 @@ jobs:
 
       - name: Dispatch build
         run: |
+          repo_owner="${{ inputs.repo_owner }}"
+          repo_name="${{ inputs.repo_name }}"
+          release="${{ inputs.release }}"
+          token="${{ inputs.token }}"
+
           curl -X POST \
             -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token ${{ inputs.token }}" \
+            -H "Authorization: token $token" \
             https://api.github.com/repos/$repo_owner/$repo_name/dispatches \
             -d "{\"event_type\": \"build-artifacts\", \"client_payload\": {\"repo_owner\": \"$repo_owner\", \"repo_name\": \"$repo_name\", \"release\": \"$release\"}}"
 
