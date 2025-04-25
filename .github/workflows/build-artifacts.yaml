@@ -2,7 +2,7 @@ name: 'RP: Build Artifacts'
 
 on:
   repository_dispatch:
-    types: [trigger-build-artifacts]
+    types: [build-artifacts]
 
   workflow_call:
     inputs:
