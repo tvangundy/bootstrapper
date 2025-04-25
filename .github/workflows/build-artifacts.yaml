@@ -4,28 +4,6 @@ on:
   repository_dispatch:
     types: [build-artifacts]
 
-  # workflow_call:
-  #   inputs:
-  #     repo_owner:
-  #       type: string
-  #       description: 'Repository Owner'
-  #       required: false
-  #       default: 'windsorcli'
-  #     repo_name:
-  #       type: string
-  #       description: 'Repository Name'
-  #       required: false
-  #       default: 'cli'
-  #     release:
-  #       type: string
-  #       description: 'Release Branch'
-  #       required: false
-  #       default: 'release-latest'
-  #     token:
-  #       type: string
-  #       description: 'GitHub Token'
-  #       required: true
-
 permissions:
   contents: write
   issues: read
@@ -34,42 +12,22 @@ jobs:
   build-artifacts:
     runs-on: ubuntu-latest
     steps:
-      # - name: Print out the inputs
-      #   run: |
-      #     echo "Repo Owner: ${{ inputs.repo_owner }}"
-      #     echo "Repo Name: ${{ inputs.repo_name }}"
-      #     echo "Release: ${{ inputs.release }}"
-      #     echo "Token: ${{ inputs.token }}"
-          
+
       - name: Print out the inputs
         run: |
           echo "Repo Owner: ${{ github.event.client_payload.repo_owner }}"
           echo "Repo Name: ${{ github.event.client_payload.repo_name }}"
           echo "Release: ${{ github.event.client_payload.release }}"
-          echo "Token: ${{ inputs.token }}"
 
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          repository: ${{ inputs.repo_owner }}/${{ inputs.repo_name }}
-          token: ${{ inputs.token }}
+          repository: ${{ github.event.client_payload.repo_owner }}/${{ github.event.client_payload.repo_name }}
+          token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}
 
       - name: Print out folders
         run: |
           ls -la
-
-      - name: Dispatch build
-        run: |
-          repo_owner="${{ inputs.repo_owner }}"
-          repo_name="${{ inputs.repo_name }}"
-          release="${{ inputs.release }}"
-          token="${{ inputs.token }}"
-
-          curl -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token $token" \
-            https://api.github.com/repos/$repo_owner/$repo_name/dispatches \
-            -d "{\"event_type\": \"build-artifacts\", \"client_payload\": {\"repo_owner\": \"$repo_owner\", \"repo_name\": \"$repo_name\", \"release\": \"$release\"}}"
 
   # build-and-test:
   #   strategy:
