@@ -17,7 +17,10 @@ inputs:
     description: 'Windsor Test Config'
     required: false
     default: 'ci-self-hosted-tests.yaml'
-        
+  token:
+    description: 'GitHub Token'
+    required: true
+
 outputs:
   runner_list:
     description: 'List of runners'
@@ -45,7 +48,7 @@ runs:
         version: ${{ inputs.version }}
         release: ${{ inputs.release }}
         windsor_test_config: ${{ inputs.windsor_test_config }}
-        token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}    
+        token: ${{ inputs.token }}    
 
     - name: Set job outputs
       id: set-job-outputs
