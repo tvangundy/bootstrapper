@@ -55,6 +55,7 @@ runs:
     - name: Set Windsor Test Config
       uses: actions/github-script@v7
       with:
+        github-token: ${{ inputs.token }}
         script: |
           const platform = process.env.PLATFORM_OS;
           const windsorTestConfig = '${{ inputs.windsor_test_config }}';
