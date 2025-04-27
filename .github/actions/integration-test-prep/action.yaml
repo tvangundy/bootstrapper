@@ -32,6 +32,10 @@ outputs:
     description: 'Version'
   windsor_test_config:
     description: 'Windsor Test Config'
+
+permissions:
+  contents: read
+
 runs:
   using: 'composite'
 
