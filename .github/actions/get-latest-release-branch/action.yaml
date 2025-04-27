@@ -29,6 +29,14 @@ runs:
 
   steps:
 
+    - name: Confirm inputs.token has a real value
+      run: |
+        if [ -z "${{ inputs.token }}" ]; then
+          echo "inputs.token is empty"
+          exit 1
+        fi
+      shell: bash
+      
     - name: Get Latest Release Branch
       id: get_latest_release_branch
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1

@@ -58,6 +58,7 @@ runs:
     - name: Get Latest Release Branch
       uses: ./.github/actions/get-latest-release-branch
       with:
+        github-token: ${{ inputs.token }}
         version: ${{ inputs.version }}
         release: ${{ inputs.release }}
         repo_owner: ${{ inputs.repo_owner }}
