@@ -93,6 +93,7 @@ runs:
         release: ${{ inputs.release }}
         windsor_test_config: ${{ inputs.windsor_test_config }}
         token: ${{ inputs.token }}
+                
     # - name: Run Integration Test
     #   run: |
     #     echo "Running integration tests"

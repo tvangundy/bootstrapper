@@ -8,19 +8,105 @@ permissions:
   contents: read
 
 jobs:
-  run-integration-tests:
+  checkout-target-repo:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout Target Repository
         uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
-
-      - name: Run Integration Test Harness
-        uses: ./.github/actions/integration-test-harness
         with:
-          windsor_up: ${{ github.event.client_payload.windsor_up }}
+          repository: ${{ github.event.client_payload.repo_owner }}/${{ github.event.client_payload.repo_name }}
+          token: ${{ github.event.client_payload.token }}
+          path: ${{ github.workspace }}
+
+  debug-workflow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug Workflow - Integration Test Harness
+        run: |
+          echo "Debugging workflow"
+          
+  integration-test-prep:
+    needs: debug-workflow
+    runs-on: ubuntu-latest
+    outputs:
+      runner_list: ${{ steps.set-job-outputs.outputs.runner_list }}
+      latest_release_branch: ${{ steps.set-job-outputs.outputs.latest_release_branch }}
+      version: ${{ steps.set-job-outputs.outputs.version }}
+      windsor_test_config: ${{ steps.set-job-outputs.outputs.windsor_test_config }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+          
+      - name: Run Integration Test Prep Action
+        uses: ./.github/actions/integration-test-prep
+        with:
           repo_owner: ${{ github.event.client_payload.repo_owner }}
           repo_name: ${{ github.event.client_payload.repo_name }}
           version: ${{ github.event.client_payload.version }}
           release: ${{ github.event.client_payload.release }}
           windsor_test_config: ${{ github.event.client_payload.windsor_test_config }}
+          token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}    
+
+      - name: Set job outputs
+        id: set-job-outputs
+        run: |
+          runner_list=$(echo '${{ env.runner_list }}' | jq -c .)
+
+          echo "::set-output name=runner_list::$runner_list"
+          echo "::set-output name=latest_release_branch::${{ env.latest_release_branch }}"
+          echo "::set-output name=version::${{ env.version }}"
+          echo "::set-output name=windsor_test_config::${{ env.windsor_test_config }}"
+
+          echo "version=${{ env.version }}"
+          echo "release=${{ env.latest_release_branch }}"
+          echo "runner_list=${{ env.runner_list }}"
+          echo "windsor_test_config=${{ env.windsor_test_config }}"
+
+  integration-test:
+    needs: 
+      - integration-test-prep
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: ${{ fromJson(needs.integration-test-prep.outputs.runner_list) }}
+            
+    runs-on: ${{ matrix.runner.os }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
+
+      - name: Run Integration Test
+        uses: ./.github/actions/integration-test
+        with:
+          windsor_up: ${{ github.event.client_payload.windsor_up }}
+          version: ${{ github.event.client_payload.version }}
+          release: ${{ github.event.client_payload.release }}
+          windsor_test_config: ${{ github.event.client_payload.windsor_test_config }}
+          docker_host: ${{ matrix.runner.docker_host }}
           token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}
+          
+      - name: Run Integration Test
+        run: |
+          echo "Running integration tests"
+          echo "Version: ${{ needs.integration-test-prep.outputs.version }}"
+          echo "Release: ${{ needs.integration-test-prep.outputs.latest_release_branch }}"
+          echo "Windsor Test Config: ${{ needs.integration-test-prep.outputs.windsor_test_config }}"
+          echo "Docker Host: ${{ matrix.runner.docker_host }}"
+  
+  # run-integration-tests:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
+
+  #     - name: Run Integration Test Harness
+  #       uses: ./.github/actions/integration-test-harness
+  #       with:
+  #         windsor_up: ${{ github.event.client_payload.windsor_up }}
+  #         repo_owner: ${{ github.event.client_payload.repo_owner }}
+  #         repo_name: ${{ github.event.client_payload.repo_name }}
+  #         version: ${{ github.event.client_payload.version }}
+  #         release: ${{ github.event.client_payload.release }}
+  #         windsor_test_config: ${{ github.event.client_payload.windsor_test_config }}
+  #         token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}
