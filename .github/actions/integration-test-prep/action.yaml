@@ -64,6 +64,13 @@ runs:
         repo-name: ${{ inputs.repo-name }}
         token: ${{ inputs.token }}    
         
+    - name: Confirm inputs.token has a real value
+      run: |
+        if [ -z "${{ inputs.token }}" ]; then
+          echo "inputs.token is empty"
+          exit 1
+        fi
+          
     - name: Set Windsor Test Config
       uses: actions/github-script@v7
       with:
