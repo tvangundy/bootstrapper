@@ -58,7 +58,7 @@ runs:
           exit 1
         fi
       shell: bash
-  
+
     - name: Run Integration Test Prep Action
       uses: ./.github/actions/integration-test-prep
       with:
@@ -86,9 +86,17 @@ runs:
       shell: bash
 
     - name: Run Integration Test
-      run: |
-        echo "Running integration tests"
-        echo "Version: ${{ inputs.version }}"
-        echo "Release: ${{ inputs.release }}"
-        echo "Windsor Test Config: ${{ inputs.windsor_test_config }}"
-      shell: bash
+      uses: ./.github/actions/integration-test
+      with:
+        windsor_up: ${{ inputs.windsor_up }}
+        version: ${{ inputs.version }}
+        release: ${{ inputs.release }}
+        windsor_test_config: ${{ inputs.windsor_test_config }}
+        token: ${{ inputs.token }}
+    # - name: Run Integration Test
+    #   run: |
+    #     echo "Running integration tests"
+    #     echo "Version: ${{ inputs.version }}"
+    #     echo "Release: ${{ inputs.release }}"
+    #     echo "Windsor Test Config: ${{ inputs.windsor_test_config }}"
+    #   shell: bash
