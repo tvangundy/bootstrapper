@@ -105,7 +105,3 @@ runs:
           console.log(`Release Number: ${release_number}`);
           console.log(`Release: ${release}`);
           console.log(`Latest Release Branch: ${release}`);
-
-          console.log('This step is designed to fail intentionally.');
-          core.setFailed('Intentional failure for testing purposes.');
-          process.exit(1);
