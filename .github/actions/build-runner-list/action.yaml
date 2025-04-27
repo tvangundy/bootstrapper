@@ -1,0 +1,60 @@
+name: 'Build Runner List'
+description: 'Builds the runner list'
+
+inputs:
+  windsor_test_config:
+    description: 'Windsor Test Config'
+    required: false
+    default: 'tests/configs/ci-integration-tests.yaml'
+
+permissions:
+  contents: read
+
+runs:
+  using: 'composite'
+
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@7c12f8017d5436eb855f1ed4399f037a36fbd9e8 # v2
+      with:
+        node-version: '16'  # Use a specific Node.js version
+
+    - name: Install Dependencies
+      run: npm install js-yaml
+      shell: bash
+
+    - name: Build Runner List
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          const yaml = require('js-yaml');
+
+          console.log(`Windsor Test Config: ${{ inputs['windsor_test_config'] }}`);
+
+          // Load the YAML configuration file
+          const windsorTestConfig = '${{ inputs['windsor_test_config'] }}';
+          const configPath = path.join(process.env.GITHUB_WORKSPACE, windsorTestConfig);
+          const configFile = fs.readFileSync(configPath, 'utf8');
+          const config = yaml.load(configFile);
+
+          // Extract runners list
+          const runners = config.runners;
+          if (!runners) {
+            throw new Error(`Error: No runners found in ${windsorTestConfig}.`);
+          }
+
+          // Prepare runner list
+          const runnerList = runners.map(runner => ({
+            os: runner.os,
+            label: runner.label,
+            arch: runner.arch,
+            docker_host: runner.docker_host
+          }));
+
+          // Convert runner list to JSON string
+          const runnerListJson = JSON.stringify(runnerList);
+
+          // Set the runner list as an environment variable and output
+          core.exportVariable('runner_list', runnerListJson);
