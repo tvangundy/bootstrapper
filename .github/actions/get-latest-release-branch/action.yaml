@@ -1,0 +1,77 @@
+name: 'Get Latest Release Branch'
+description: 'Gets the latest release branch'
+inputs:
+    version:
+      description: 'Version [vX.Y.Z]'
+      required: false
+      default: ''
+    release:
+      description: 'Release Branch: [release-latest, release-x.y.z, x.y.z]'
+      required: false
+      default: ''
+    repo-owner:
+      description: 'Repository Owner'
+      required: false
+      default: 'windsorcli'
+    repo-name:
+      description: 'Repository Name'
+      required: false
+      default: 'cli'
+    token:
+      description: 'GitHub Token'
+      required: true
+
+runs:
+  using: 'composite'
+
+  steps:
+
+    - name: Get Latest Release Branch
+      id: get_latest_release_branch
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          const releaseInput = '${{ inputs.release }}';
+          const versionInput = '${{ inputs.version }}';
+          const validFormat = /^(release-latest|release-[0-9]+\.[0-9]+\.[0-9]+|v?[0-9]+\.[0-9]+\.[0-9]+|[0-9]+\.[0-9]+\.[0-9]+)$/;
+
+          let release = '';
+          let version = '';
+
+          if (versionInput !== '') {
+            console.log('Version input is provided, setting latest_release_branch to an empty string.');
+
+            core.exportVariable('version', versionInput);
+            core.setOutput('version', versionInput);
+
+          } else {
+            if (releaseInput === 'release-latest') {
+              const { data: branches } = await github.rest.repos.listBranches({
+                owner: '${{ inputs.repo-owner }}',
+                repo: '${{ inputs.repo-name }}',
+              });
+
+              let releaseBranches = branches
+                .map(branch => branch.name)
+                .filter(name => name.startsWith('release-'))
+                .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+              const validReleaseBranchFormat = /^release-[0-9]+\.[0-9]+\.[0-9]+$/;
+              const filteredReleaseBranches = releaseBranches.filter(branch => validReleaseBranchFormat.test(branch));
+              releaseBranches = filteredReleaseBranches;
+
+              release = releaseBranches.pop() || 'main';
+
+            } else {
+              release = releaseInput;
+              version = '';
+              core.exportVariable('version', version);
+              core.setOutput('version', version);
+            }
+          }
+
+          core.exportVariable('latest_release_branch', release);
+          console.log(`Latest Release Branch: ${release}`);
+          console.log(`Version: ${version}`);
+
