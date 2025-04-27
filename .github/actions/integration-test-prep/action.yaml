@@ -70,7 +70,7 @@ runs:
           echo "inputs.token is empty"
           exit 1
         fi
-          
+      shell: bash
     - name: Set Windsor Test Config
       uses: actions/github-script@v7
       with:
