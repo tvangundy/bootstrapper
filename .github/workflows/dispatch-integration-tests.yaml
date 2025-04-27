@@ -1,0 +1,23 @@
+name: 'Dispatch Integration Tests'
+
+on:
+  repository_dispatch:
+    types: [dispatch-integration-tests]
+    
+permissions:
+  contents: read
+
+jobs:
+  run-integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
+
+      - name: Run Integration Tests
+        uses: ./.github/workflows/integration-test-harness.yaml
+        with:
+          windsor_up: ${{ github.event.client_payload.windsor_up }}
+          version: ${{ github.event.client_payload.version }}
+          release: ${{ github.event.client_payload.release }}
+          windsor_test_config: ${{ github.event.client_payload.windsor_test_config }}
