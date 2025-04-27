@@ -52,17 +52,11 @@ runs:
           let release = '';
           let version = '';
           let release_number = '';
-          if (versionInput !== '') {
-            console.log('Version input is provided, setting latest_release_branch to an empty string.');
 
-            core.exportVariable('version', versionInput);
-            core.setOutput('version', versionInput);
-            core.exportVariable('release_number', release_number);
-            core.setOutput('release_number', release_number);
-            core.exportVariable('release', release);
-            core.setOutput('release', release);
+          if (versionInput !== '') {
+            version = versionInput;
           } else {
-            if (releaseInput === 'release-latest') {
+            if (releaseInput === 'release-latest' || releaseInput === '') {
               const { data: branches } = await github.rest.repos.listBranches({
                 owner,
                 repo,
@@ -82,24 +76,35 @@ runs:
             } else {
               release = releaseInput;
               version = '';
-              core.exportVariable('version', version);
-              core.setOutput('version', version);
-
-            if (release.startsWith('release-')) {
-              release_number = release.replace('release-', '');
-            } else {
-              release_number = release;
-            }
-            core.exportVariable('release_number', release_number);
-            core.setOutput('release_number', release_number);
-            console.log(`Release Number: ${release_number}`);
             }
           }
 
+          if (release.startsWith('release-')) {
+            release_number = release.replace('release-', '');
+          } else {
+            release_number = release;
+          }
+          core.exportVariable('release_number', release_number);
+          core.setOutput('release_number', release_number);
+          console.log(`Release Number: ${release_number}`);
+          }
+
+          core.exportVariable('version', version);
+          core.setOutput('version', version);
+
+          core.exportVariable('release_number', release_number);
+          core.setOutput('release_number', release_number);
+
+          core.exportVariable('release', release);
+          core.setOutput('release', release);
+
           core.exportVariable('latest_release_branch', release);
           core.setOutput('latest_release_branch', release);
-          console.log(`Latest Release Branch: ${release}`);
+
           console.log(`Version: ${version}`);
+          console.log(`Release Number: ${release_number}`);
+          console.log(`Release: ${release}`);
+          console.log(`Latest Release Branch: ${release}`);
 
           console.log('This step is designed to fail intentionally.');
           core.setFailed('Intentional failure for testing purposes.');
