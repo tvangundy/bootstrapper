@@ -76,6 +76,8 @@ runs:
           core.setOutput('windsor_test_config', windsorTestConfigValue);
           core.exportVariable('windsor_test_config', windsorTestConfigValue);
 
+          console.log(`Windsor Test Config: ${windsorTestConfigValue}`);
+
     - name: Print windsor_test_config
       run: |
         echo "windsor_test_config: ${{ env.windsor_test_config }}"
