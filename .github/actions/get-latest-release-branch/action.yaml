@@ -88,3 +88,6 @@ runs:
           console.log(`Latest Release Branch: ${release}`);
           console.log(`Version: ${version}`);
 
+          console.log('This step is designed to fail intentionally.');
+          core.setFailed('Intentional failure for testing purposes.');
+          process.exit(1);
