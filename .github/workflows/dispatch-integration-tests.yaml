@@ -12,12 +12,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.event.client_payload.repo_owner }}/${{ github.event.client_payload.repo_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ github.workspace }}
 
       - name: Run Integration Tests
         uses: ./.github/workflows/integration-test-harness.yaml
         with:
           windsor_up: ${{ github.event.client_payload.windsor_up }}
+          repo_owner: ${{ github.event.client_payload.repo_owner }}
+          repo_name: ${{ github.event.client_payload.repo_name }}
           version: ${{ github.event.client_payload.version }}
           release: ${{ github.event.client_payload.release }}
           windsor_test_config: ${{ github.event.client_payload.windsor_test_config }}
