@@ -9,11 +9,11 @@ inputs:
       description: 'Release Branch: [release-latest, release-x.y.z, x.y.z]'
       required: false
       default: ''
-    repo-owner:
+    repo_owner:
       description: 'Repository Owner'
       required: false
       default: 'windsorcli'
-    repo-name:
+    repo_name:
       description: 'Repository Name'
       required: false
       default: 'cli'
@@ -35,8 +35,8 @@ runs:
       with:
         github-token: ${{ inputs.token }}
         script: |
-          const owner = '${{ inputs.repo-owner }}';
-          const repo = '${{ inputs.repo-name }}';
+          const owner = '${{ inputs.repo_owner }}';
+          const repo = '${{ inputs.repo_name }}';
           const releaseInput = '${{ inputs.release }}';
           const versionInput = '${{ inputs.version }}';
           const validFormat = /^(release-latest|release-[0-9]+\.[0-9]+\.[0-9]+|v?[0-9]+\.[0-9]+\.[0-9]+|[0-9]+\.[0-9]+\.[0-9]+)$/;
