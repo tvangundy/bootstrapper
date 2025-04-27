@@ -2,6 +2,12 @@ name: 'Integration Test Prep'
 description: 'Prepares the environment for the integration test'
 
 inputs:
+  repo-owner:
+    description: 'Repository owner'
+    required: true
+  repo-name:
+    description: 'Repository name'
+    required: true
   version:
     description: 'Version'
     required: false
@@ -48,9 +54,10 @@ runs:
     - name: Get Latest Release Branch
       uses: ./.github/actions/get-latest-release-branch
       with:
-        github-token: ${{ inputs.token }}
         version: ${{ inputs.version }}
         release: ${{ inputs.release }}
+        repo-owner: ${{ inputs.repo-owner }}
+        repo-name: ${{ inputs.repo-name }}
         token: ${{ inputs.token }}    
         
     - name: Set Windsor Test Config
