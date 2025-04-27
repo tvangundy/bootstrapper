@@ -1,0 +1,69 @@
+name: 'Integration Test Harness'
+description: 'An action to run the integration test harness'
+
+inputs:
+  windsor_up:
+    description: 'Run Windsor Up'
+    required: false
+    default: false
+  version:
+    description: 'Version'
+    required: false        
+  release:
+    description: 'Release Branch'
+    required: false
+    default: 'release-latest'
+  windsor_test_config:
+    description: 'Windsor Test Config'
+    required: false
+    default: 'ci-self-hosted-tests.yaml'
+        
+outputs:
+  runner_list:
+    description: 'List of runners'
+  latest_release_branch:
+    description: 'Latest release branch'
+  version:
+    description: 'Version'
+  windsor_test_config:
+    description: 'Windsor Test Config'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Debug Workflow - Integration Test Harness
+      run: |
+        echo "Debugging workflow"
+          
+    - name: Checkout code
+      uses: actions/checkout@v4.2.2
+          
+    - name: Run Integration Test Prep Action
+      uses: ./.github/actions/integration-test-prep
+      with:
+        version: ${{ inputs.version }}
+        release: ${{ inputs.release }}
+        windsor_test_config: ${{ inputs.windsor_test_config }}
+        token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}    
+
+    - name: Set job outputs
+      id: set-job-outputs
+      run: |
+        runner_list=$(echo '${{ env.runner_list }}' | jq -c .)
+
+        echo "::set-output name=runner_list::$runner_list"
+        echo "::set-output name=latest_release_branch::${{ env.latest_release_branch }}"
+        echo "::set-output name=version::${{ env.version }}"
+        echo "::set-output name=windsor_test_config::${{ env.windsor_test_config }}"
+
+        echo "version=${{ env.version }}"
+        echo "release=${{ env.latest_release_branch }}"
+        echo "runner_list=${{ env.runner_list }}"
+        echo "windsor_test_config=${{ env.windsor_test_config }}"
+
+    - name: Run Integration Test
+      run: |
+        echo "Running integration tests"
+        echo "Version: ${{ inputs.version }}"
+        echo "Release: ${{ inputs.release }}"
+        echo "Windsor Test Config: ${{ inputs.windsor_test_config }}"
