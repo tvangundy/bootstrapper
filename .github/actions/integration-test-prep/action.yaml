@@ -78,27 +78,27 @@ runs:
       with:
         script: |
           console.log(`Windsor Test Config: ${inputs.windsor_test_config}`);
-          # const platform = process.env.PLATFORM_OS;
-          # const windsorTestConfig = '${{ inputs.windsor_test_config }}';
+          const platform = process.env.PLATFORM_OS;
+          const windsorTestConfig = '${{ inputs.windsor_test_config }}';
 
-          # console.log(`Incoming: Windsor Test Config: ${windsorTestConfig}`);
+          console.log(`Incoming: Windsor Test Config: ${windsorTestConfig}`);
 
-          # let windsorTestConfigValue;
+          let windsorTestConfigValue;
 
-          # if (platform === 'win32') {
-          #   console.log("Setting Windsor Test Config for Windows");
-          #   windsorTestConfigValue = `tests\\configs\\${windsorTestConfig}`;
-          # } else {
-          #   console.log("Setting Windsor Test Config for Linux/macOS");
-          #   windsorTestConfigValue = `tests/configs/${windsorTestConfig}`;
-          # }
+          if (platform === 'win32') {
+            console.log("Setting Windsor Test Config for Windows");
+            windsorTestConfigValue = `tests\\configs\\${windsorTestConfig}`;
+          } else {
+            console.log("Setting Windsor Test Config for Linux/macOS");
+            windsorTestConfigValue = `tests/configs/${windsorTestConfig}`;
+          }
 
-          # console.log(`Outgoing: Windsor Test Config: ${windsorTestConfigValue}`);
+          console.log(`Outgoing: Windsor Test Config: ${windsorTestConfigValue}`);
 
-          # core.setOutput('windsor_test_config', windsorTestConfigValue);
-          # core.exportVariable('windsor_test_config', windsorTestConfigValue);
+          core.setOutput('windsor_test_config', windsorTestConfigValue);
+          core.exportVariable('windsor_test_config', windsorTestConfigValue);
 
-          # console.log(`Windsor Test Config: ${windsorTestConfigValue}`);
+          console.log(`Windsor Test Config: ${windsorTestConfigValue}`);
 
     # - name: Print windsor_test_config
     #   run: |
