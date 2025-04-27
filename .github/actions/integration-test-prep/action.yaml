@@ -79,9 +79,10 @@ runs:
         script: |
           console.log(`Windsor Test Config: ${{ inputs.windsor_test_config }}`);
           const platform = process.env.PLATFORM_OS;
-          const windsorTestConfig = '${{ inputs.windsor_test_config }}';
+          // const windsorTestConfig = '${{ inputs.windsor_test_config }}';
 
-          console.log(`Incoming: Windsor Test Config: ${{ windsorTestConfig }}`);
+          console.log(`Platform: ${platform}`);
+          console.log(`Incoming: Windsor Test Config: ${{ inputs.windsor_test_config }}`);
 
           // let windsorTestConfigValue;
           // if (platform === 'win32') {
