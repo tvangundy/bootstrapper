@@ -89,15 +89,7 @@ runs:
       uses: ./.github/actions/integration-test
       with:
         windsor_up: ${{ inputs.windsor_up }}
-        version: ${{ inputs.version }}
-        release: ${{ inputs.release }}
-        windsor_test_config: ${{ inputs.windsor_test_config }}
+        version: ${{ steps.set-job-outputs.outputs.version }}
+        release: ${{ steps.set-job-outputs.outputs.latest_release_branch }}
+        windsor_test_config: ${{ steps.set-job-outputs.outputs.windsor_test_config }}
         token: ${{ inputs.token }}
-                
-    # - name: Run Integration Test
-    #   run: |
-    #     echo "Running integration tests"
-    #     echo "Version: ${{ inputs.version }}"
-    #     echo "Release: ${{ inputs.release }}"
-    #     echo "Windsor Test Config: ${{ inputs.windsor_test_config }}"
-    #   shell: bash
