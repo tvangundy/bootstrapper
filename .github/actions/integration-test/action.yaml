@@ -22,9 +22,6 @@ inputs:
       description: 'Docker Host'
       required: false
       default: ''
-    token:
-      description: 'GitHub Token'
-      required: true
 
 permissions:
   contents: read
@@ -33,6 +30,7 @@ runs:
   using: 'composite'
 
   steps:
+
     - name: Determine Platform Type
       id: detect_platform
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
@@ -50,7 +48,6 @@ runs:
         sudo chown -R $USER:$USER $GITHUB_WORKSPACE
         sudo chmod -R 755 $GITHUB_WORKSPACE
       shell: bash
-
     - name: Install Aqua on Linux and macOS
       if: steps.detect_platform.outputs.platform == 'linux' || steps.detect_platform.outputs.platform == 'darwin'
       uses: aquaproj/aqua-installer@e2d0136abcf70b7a2f6f505720640750557c4b33 # v3.1.1

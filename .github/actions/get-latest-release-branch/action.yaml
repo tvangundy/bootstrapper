@@ -67,11 +67,17 @@ runs:
                 .filter(name => name.startsWith('release-'))
                 .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
+              console.log('All branches:', branches.map(branch => branch.name));
+              console.log('Filtered release branches:', releaseBranches);
+
               const validReleaseBranchFormat = /^release-[0-9]+\.[0-9]+\.[0-9]+$/;
               const filteredReleaseBranches = releaseBranches.filter(branch => validReleaseBranchFormat.test(branch));
               releaseBranches = filteredReleaseBranches;
 
+              console.log('Valid release branches:', releaseBranches);
+
               release = releaseBranches.pop() || 'main';
+              console.log('Selected release branch:', release);
 
             } else {
               release = releaseInput;
