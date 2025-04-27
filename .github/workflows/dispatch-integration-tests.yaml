@@ -12,19 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-        with:
-          repository: ${{ github.event.client_payload.repo_owner }}/${{ github.event.client_payload.repo_name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          path: ${{ github.workspace }}
-
-      - name: List the contents of the home directory
-        run: |
-          ls -la
-
-      - name: List the integration test harness.yaml file
-        run: |
-          cat ./.github/workflows/integration-test-harness.yaml
+        uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
 
       - name: Run Integration Test Harness
         uses: ./.github/actions/integration-test-harness

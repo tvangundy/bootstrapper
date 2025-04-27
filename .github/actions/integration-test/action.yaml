@@ -1,0 +1,738 @@
+name: 'Integration Test'
+description: 'Runs the integration test'
+inputs:
+    windsor_up:
+      description: 'Run Windsor Up'
+      required: false
+      type: boolean
+      default: false
+    version:
+      description: 'Version [vX.Y.Z]'
+      required: false
+      default: ''
+    release:
+      description: 'Release Branch: [release-latest, release-x.y.z, x.y.z]'
+      required: false
+      default: ''
+    windsor_test_config:
+      description: 'Windsor Test Config'
+      required: false
+      default: 'tests/configs/ci-integration-tests.yaml'
+    docker_host:
+      description: 'Docker Host'
+      required: false
+      default: ''
+    token:
+      description: 'GitHub Token'
+      required: true
+
+permissions:
+  contents: read
+
+runs:
+  using: 'composite'
+
+  steps:
+    - name: Determine Platform Type
+      id: detect_platform
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const os = require('os');
+          const platform = os.platform();
+          console.log(`Detected platform: ${platform}`);
+          core.setOutput('platform', platform);
+          core.exportVariable('PLATFORM_OS', platform);
+
+    - name: Fix permissions for Linux runners
+      if: always() && steps.detect_platform.outputs.platform == 'linux'
+      run: |
+        sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+        sudo chmod -R 755 $GITHUB_WORKSPACE
+      shell: bash
+
+    - name: Install Aqua on Linux and macOS
+      if: steps.detect_platform.outputs.platform == 'linux' || steps.detect_platform.outputs.platform == 'darwin'
+      uses: aquaproj/aqua-installer@e2d0136abcf70b7a2f6f505720640750557c4b33 # v3.1.1
+      with:
+        aqua_version: v2.43.1
+
+    - name: Install Aqua on Windows
+      if: steps.detect_platform.outputs.platform == 'win32'
+      run: |
+        $url = "https://github.com/aquaproj/aqua/releases/download/v2.48.2-0/aqua_windows_amd64.zip"
+        $output = "aqua_windows_amd64.zip"
+        $installPath = "$env:USERPROFILE\\aqua"
+        
+        # Remove existing directory if it exists
+        if (Test-Path $installPath) {
+          Remove-Item -Recurse -Force $installPath
+        }
+        
+        Invoke-WebRequest -Uri $url -OutFile $output
+        Expand-Archive -Path $output -DestinationPath $installPath -Force
+        
+        # Add the install path to the PATH environment variable
+        "$installPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        Set-Item Env:Path "$Env:LOCALAPPDATA\aquaproj-aqua\bin;$Env:Path"
+        "$Env:LOCALAPPDATA\aquaproj-aqua\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      shell: powershell
+      
+    - name: Print Aqua Path
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const { execSync } = require('child_process');
+          const os = require('os');
+
+          try {
+            const platform = os.platform();
+            let aquaPathCommand = platform === 'win32' ? 'where aqua' : 'which aqua';
+
+            console.log(`Checking Aqua path on ${platform}...`);
+            const aquaPath = execSync(aquaPathCommand, { encoding: 'utf-8' }).trim();
+            console.log(`Aqua path: ${aquaPath}`);
+          } catch (error) {
+            console.error('Error getting Aqua path:', error.message);
+            process.exit(1);
+          }
+
+    - name: Install Tools
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const { execSync } = require('child_process');
+          const os = require('os');
+
+          try {
+            const platform = os.platform();
+            console.log(`Detected platform: ${platform}`);
+
+            if (platform === 'linux' || platform === 'darwin' || platform === 'win32') {
+              console.log('Installing tools using Aqua...');
+              execSync('aqua install', { stdio: 'inherit' });
+              console.log('Tools installed successfully.');
+            } else {
+              console.log('Tool installation is not supported on this platform.');
+            }
+          } catch (error) {
+            console.error('Error installing tools:', error.message);
+            process.exit(1);
+          }
+
+    - name: Set DOCKER_HOST Environment Variable
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const { execSync } = require('child_process');
+          const os = require('os');
+
+          try {
+            const platform = os.platform();
+            const dockerHost = '${{ inputs.docker_host }}';
+
+            if (dockerHost === '') {
+              console.log('dockerHost is empty. DOCKER_HOST will not be set.');
+            } else {
+              console.log(`Setting DOCKER_HOST for platform: ${platform}`);
+              if (platform === 'win32') {
+                execSync(`echo "DOCKER_HOST=${dockerHost}" >> $env:GITHUB_ENV`, { stdio: 'inherit', shell: 'powershell' });
+              } else {
+                execSync(`echo "DOCKER_HOST=${dockerHost}" >> $GITHUB_ENV`, { stdio: 'inherit' });
+              }
+              console.log(`DOCKER_HOST set to: ${dockerHost}`);
+            }
+          } catch (error) {
+            console.error('Error setting DOCKER_HOST environment variable:', error.message);
+            process.exit(1);
+          }
+
+    - name: Install Windsor CLI
+      uses: windsorcli/action@5b792556ba81bdc6f8abad529343a47f883832cc # v0.3.0
+      with:
+        version: ${{ inputs.version }}
+        ref: ${{ inputs.release }}
+        context: "local"
+
+    - name: Get Windsor Context
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const { execSync } = require('child_process');
+
+          try {
+            const windsorContext = execSync('windsor context get', { encoding: 'utf-8' });
+            console.log(`Windsor context: ${windsorContext.trim()}`);
+          } catch (error) {
+            console.error('Error getting Windsor context:', error.message);
+            process.exit(1);
+          }
+
+    - name: Windsor Check
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const { execSync } = require('child_process');
+
+          try {
+            const windsorCheckOutput = execSync('windsor check', { encoding: 'utf-8' });
+            console.log(`Windsor check output: ${windsorCheckOutput.trim()}`);
+          } catch (error) {
+            console.error('Error running Windsor check:', error.message);
+            process.exit(1);
+          }
+
+    - name: Windsor Up
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const { execSync } = require('child_process');
+          const os = require('os');
+
+          try {
+            const platform = os.platform();
+            const isWindows = platform === 'win32';
+            const windsorCommand = isWindows ? 'windsor.exe' : 'windsor';
+
+            console.log(`Detected platform: ${platform}`);
+
+            if (${{ inputs.windsor_up }} === true) {
+              console.log('Running Windsor Up...');
+              const command = isWindows 
+                ? `${windsorCommand} up --install --verbose`
+                : `${windsorCommand} up --install --verbose`;
+              execSync(command, { stdio: 'inherit' });
+              console.log('Windsor Up completed successfully.');
+            } else {
+              console.log('Warning: WINDSOR_UP was not set, skipping Windsor Up');
+            }
+          } catch (error) {
+            console.error('Error running Windsor Up:', error.message);
+            process.exit(1);
+          }
+
+    - name: Check Pods Status
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const { execSync } = require('child_process');
+          const fs = require('fs');
+
+          try {
+            if (!${{ inputs.windsor_up }}) {
+              console.log('WINDSOR_UP is not set to true. Skipping Check Pods Status.');
+              process.exit(0);
+            }
+
+            const platform = require('os').platform();
+            const isWindows = platform === 'win32';
+            const windsorCommand = isWindows ? 'windsor.exe' : 'windsor';
+
+            console.log(`Using Windsor CLI at: ${windsorCommand}`);
+
+            // Fetch all pods in all namespaces in JSON format
+            execSync(`${windsorCommand} exec -- kubectl get pods -A -o json > pods.json`, { stdio: 'inherit' });
+
+            const podsJson = fs.readFileSync('pods.json', 'utf8');
+
+            if (!podsJson) {
+              console.error('No JSON output received. Please check if the Kubernetes cluster is accessible and has pods.');
+              process.exit(1);
+            }
+
+            const pods = JSON.parse(podsJson);
+
+            // Initialize counters
+            let runningCount = 0;
+            let nonRunningCount = 0;
+
+            // Print header with proper spacing
+            console.log(`${'NAMESPACE'.padEnd(20)} ${'POD_NAME'.padEnd(50)} ${'STATUS'.padEnd(10)}`);
+
+            pods.items.forEach(item => {
+              const namespace = item.metadata.namespace;
+              const podName = item.metadata.name;
+              const status = item.status.phase;
+
+              console.log(`${namespace.padEnd(20)} ${podName.padEnd(50)} ${status.padEnd(10)}`);
+
+              if (status !== 'Running') {
+                nonRunningCount++;
+              } else {
+                runningCount++;
+              }
+            });
+
+            console.log('\nSummary:');
+            console.log(`Running pods: ${runningCount}`);
+            console.log(`Non-running pods: ${nonRunningCount}`);
+
+            if (nonRunningCount > 0) {
+              console.warn(`Warning: There are ${nonRunningCount} pods that are not running.`);
+            }
+
+            process.exit(0);
+          } catch (error) {
+            console.error('Error checking pod status:', error.message);
+            process.exit(1);
+          }
+
+    - name: Run Tests
+      if: steps.detect_platform.outputs.platform == 'linux' || steps.detect_platform.outputs.platform == 'darwin'
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const { execSync } = require('child_process');
+          const os = require('os');
+          const fs = require('fs');
+          const path = require('path');
+
+          try {
+            const platform = os.platform();
+            const isWindows = platform === 'win32';
+            const windsorExecutable = isWindows ? 'windsor.exe' : 'windsor';
+            const installFolder = 'bin';
+            const version = '${{ inputs.version }}';
+            const arch = process.env.RUNNER_ARCH || 'amd64';
+            const workspace = process.env.GITHUB_WORKSPACE;
+            const useDocker = process.env.USE_DOCKER === 'true';
+            const testConfig = '${{ inputs.windsor_test_config }}';
+
+            console.log(`Running tests on ${platform}...`);
+
+            // Function to execute a command
+            const execCommand = (command) => {
+              try {
+                console.log(`Executing: ${command}`);
+                execSync(command, { stdio: 'inherit' });
+              } catch (error) {
+                console.error(`Error executing command: ${command}`);
+                console.error(error.message);
+                process.exit(1);
+              }
+            };
+
+            // Function to install a shell if not present
+            const installShell = (shellName, ubuntuPkg, macosPkg) => {
+              try {
+                execSync(`${shellName} --version`, { stdio: 'inherit' });
+                console.log(`${shellName} is already installed.`);
+              } catch {
+                console.log(`Installing ${shellName}...`);
+                if (platform === 'linux') {
+                  execCommand(`sudo apt-get update && sudo apt-get install -y ${ubuntuPkg}`);
+                } else if (platform === 'darwin') {
+                  execCommand(`/opt/homebrew/bin/brew install ${macosPkg}`);
+                }
+              }
+            };
+
+            // Function to run a command in a shell
+            const runInShell = (shellCmd, scriptPath) => {
+              try {
+                console.log(`Running ${scriptPath} in ${shellCmd} shell`);
+                execSync(`${shellCmd} ${scriptPath}`, { stdio: 'inherit' });
+              } catch (error) {
+                console.error(`Error running ${scriptPath} in ${shellCmd} shell`);
+                process.exit(1);
+              }
+            };
+
+            // Check the yq version and adjust the command accordingly
+            const yqVersion = execSync('yq --version', { encoding: 'utf-8' }).trim();
+            console.log(`Using yq version: ${yqVersion}`);
+
+            // Ensure the testConfig path is absolute and correctly quoted
+            const testConfigPath = path.isAbsolute(testConfig) ? testConfig : path.join(workspace, testConfig);
+
+            console.log(`Workspace: ${workspace}`);
+            console.log(`Test configuration: ${testConfig}`);
+            console.log(`Test configuration path: ${testConfigPath}`);
+
+            let testsList;
+            try {
+              // Use the correct command for yq version 4
+              testsList = JSON.parse(execSync(`yq e '.tests-list' -o=json "${testConfigPath}"`, { encoding: 'utf-8' }));
+            } catch (error) {
+              console.error('Error parsing test configuration:', error.message);
+              process.exit(1);
+            }
+
+            console.log("=========================================");
+            console.log("              STARTING TEST              ");
+            console.log("=========================================");
+
+            // Loop through each test entry
+            testsList.forEach(test => {
+              const testPath = test.path;
+              const testType = test.type || 'shell';
+              const osList = test.os || [];
+              const shell = test.shell || 'bash';
+
+              // Install necessary shells
+              switch (shell) {
+                case 'bash':
+                  installShell('bash', 'bash', 'bash');
+                  break;
+                case 'zsh':
+                  installShell('zsh', 'zsh', 'zsh');
+                  break;
+                case 'fish':
+                  installShell('fish', 'fish', 'fish');
+                  break;
+                case 'pwsh':
+                  installShell('pwsh', 'powershell', 'powershell');
+                  break;
+                case 'tcsh':
+                  installShell('tcsh', 'tcsh', 'tcsh');
+                  break;
+                case 'elvish':
+                  installShell('elvish', 'elvish', 'elvish');
+                  break;
+                default:
+                  console.log(`Unknown shell: ${shell}`);
+              }
+
+              // Check if the current OS is supported for the test
+              if (osList.length === 0 || osList.includes(platform)) {
+                console.log(`Running ${testType} tests using ${shell} shell at ${testPath}`);
+
+                if (useDocker) {
+                  const dockerCommand = testType === 'shell' ? `bash ${testPath}` : `bats ${testPath}`;
+                  execCommand(`docker run --rm -i -v "${workspace}":/workspace -w /workspace windsortest:latest ${dockerCommand}`);
+                } else {
+                  if (testType === 'bats') {
+                    const modifiedTestPath = `bats ${testPath}`;
+                    // runInShell(shell, modifiedTestPath);
+                    console.log(`NOT Running ${testType} tests using ${shell} shell at ${modifiedTestPath}`);
+                  } else {
+                    runInShell(shell, testPath);
+                  }
+                }
+              } else {
+                console.log(`Skipping ${testType} test at ${testPath} for OS ${platform}`);
+              }
+            });
+
+            console.log('Tests completed successfully.');
+          } catch (error) {
+            console.error('Error running tests:', error.message);
+            process.exit(1);
+          }
+
+    - name: Run Tests on Windows
+      if: steps.detect_platform.outputs.platform == 'win32'
+      run: |
+        $testConfig = '${{ inputs.windsor_test_config }}'
+        $testConfigPath = if ([System.IO.Path]::IsPathRooted($testConfig)) { $testConfig } else { Join-Path $env:GITHUB_WORKSPACE $testConfig }
+
+        # Read the tests-list from the windsor_test_config file using yq
+        try {
+            $tests_list_json = & yq eval -o=json $testConfigPath
+            $tests_list = $tests_list_json | ConvertFrom-Json
+        } catch {
+            Write-Host "Error reading or parsing YAML file with yq: $_"
+            exit 1
+        }
+
+        Write-Host "========================================="
+        Write-Host "              STARTING TEST              "
+        Write-Host "========================================="
+
+        # Loop through each test entry in the tests-list
+        foreach ($row in $tests_list.'tests-list') {
+            $path = $row.path
+            $type = if ($null -eq $row.type) { 'shell' } else { $row.type }
+            $os_list = $row.os
+
+            # Check if the current OS is supported for the test
+            if (-not $os_list -or $os_list -contains $env:RUNNER_OS) {
+                try {
+                    Write-Host "Running $type tests with path = $path"
+
+                    if ($env:USE_DOCKER -eq "true") {
+                        switch ($type) {
+                            'shell' {
+                                docker run --rm -i `
+                                    -v "${env:GITHUB_WORKSPACE}:/workspace" `
+                                    -w /workspace `
+                                    windsortest:latest `
+                                    bash -c "dos2unix '$path' && bash '$path'"
+                            }
+                            'bats' {
+                                docker run --rm -i `
+                                    -v "${env:GITHUB_WORKSPACE}:/workspace" `
+                                    -w /workspace `
+                                    windsortest:latest `
+                                    bash -c "bats '$path'"
+                            }
+                            default {
+                                Write-Host "Unknown test type: $type"
+                            }
+                        }
+                    } else {
+                        switch ($type) {
+                            'shell' {
+                                bash -c "dos2unix '$path'; bash '$path'"
+                            }
+                            'bats' {
+                                Write-Host "Skipping: bats '$path'"
+                            }
+                            default {
+                                Write-Host "Unknown test type: $type"
+                            }
+                        }
+                    }
+                } catch {
+                    Write-Host "Error running command for $type tests: $_"
+                }
+            } else {
+                Write-Host "Skipping $type test at $path for OS $env:RUNNER_OS"
+            }
+        }
+      shell: powershell
+
+    - name: Windsor Down
+      if: always() 
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const { execSync } = require('child_process');
+          const os = require('os');
+
+          try {
+            // Check if windsor_up is true using only process.env
+            // GitHub will have set this env variable from the workflow input
+            const windsorUpInput = '${{ inputs.windsor_up }}' === 'true';
+            
+            if (!windsorUpInput) {
+              console.log('WINDSOR_UP is not set to true. Skipping Windsor Down.');
+              process.exit(0);
+            }
+
+            const platform = os.platform();
+            const isWindows = platform === 'win32';
+            const windsorCommand = isWindows ? 'windsor.exe' : 'windsor';
+
+            console.log(`Detected platform: ${platform}`);
+            console.log('Running Windsor Down...');
+
+            // Execute the Windsor Down command
+            execSync(`${windsorCommand} down --clean`, { stdio: 'inherit' });
+
+            console.log('Windsor Down completed successfully.');
+          } catch (error) {
+            console.error('Error running Windsor Down:', error.message);
+            process.exit(1);
+          }
+
+    - name: Docker Clean
+      if: always() && (steps.detect_platform.outputs.platform == 'linux' || steps.detect_platform.outputs.platform == 'darwin')
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const { execSync } = require('child_process');
+          const fs = require('fs');
+
+          try {
+            // Check if windsor_up is true using only process.env
+            // GitHub will have set this env variable from the workflow input
+            const windsorUpInput = '${{ inputs.windsor_up }}' === 'true';
+            
+            if (!windsorUpInput) {
+              console.log('WINDSOR_UP is not set to true. Skipping Docker Clean.');
+              process.exit(0);
+            }
+
+            // Check if Docker is installed
+            try {
+              execSync('docker --version', { stdio: 'inherit' });
+              console.log('Docker is installed.');
+            } catch (error) {
+              console.error('Docker is not installed. Exiting.');
+              process.exit(1);
+            }
+
+            // Check for running containers and remove them
+            const containers = execSync('docker ps -aq', { encoding: 'utf-8' }).trim();
+            if (containers) {
+              console.log('Removing containers...');
+              // Replace newlines with spaces to properly format container IDs
+              const containerList = containers.replace(/\n/g, ' ');
+              execSync(`docker rm -f ${containerList}`, { stdio: 'inherit' });
+            } else {
+              console.log('No containers to remove.');
+            }
+
+            // Prune system, volumes, and networks
+            console.log('Pruning Docker system, volumes, and networks...');
+            execSync('docker system prune -a -f', { stdio: 'inherit' });
+            execSync('docker volume prune -f', { stdio: 'inherit' });
+            execSync('docker network prune -f', { stdio: 'inherit' });
+            execSync('docker system prune -a -f', { stdio: 'inherit' });
+
+            // Remove .volumes directory if it exists
+            if (fs.existsSync('.volumes')) {
+              console.log('Removing .volumes directory...');
+              fs.rmSync('.volumes', { recursive: true, force: true });
+            } else {
+              console.log('.volumes directory does not exist.');
+            }
+          } catch (error) {
+            console.error('Error during Docker clean-up:', error.message);
+            process.exit(1);
+          }
+      
+    - name: Docker Clean on Windows
+      if: always() && steps.detect_platform.outputs.platform == 'win32'
+      run: |
+        $windsorUpInput = [bool]::Parse("${{ inputs.windsor_up }}")
+        if (-not $windsorUpInput) {
+          Write-Output 'WINDSOR_UP is not set to true. Skipping Docker Clean on Windows.'
+          exit 0
+        }
+
+        $containers = docker ps -aq
+        if ($containers) {
+          Write-Output "Removing containers..."
+          docker rm -f $containers
+        } else {
+          Write-Output "No containers to remove."
+        }
+
+        # Prune system, volumes, and networks
+        Write-Output "Pruning Docker system, volumes, and networks..."
+        docker system prune -a -f
+        docker volume prune -f
+        docker network prune -f
+        docker system prune -a -f
+      shell: powershell
+  
+    - name: Fix permissions for Linux runners
+      if: always() && steps.detect_platform.outputs.platform == 'linux'
+      run: |
+        sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+        sudo chmod -R 755 $GITHUB_WORKSPACE
+      shell: bash
+
+    - name: Windsor Clean
+      if: always() 
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+
+          try {
+            const workspace = process.env.GITHUB_WORKSPACE;
+
+            if (workspace === '/') {
+              console.error('Error: GITHUB_WORKSPACE is the root folder. Aborting cleanup.');
+              process.exit(1);
+            }
+
+            if (!fs.existsSync(workspace) || !fs.lstatSync(workspace).isDirectory()) {
+              console.error('Error: GITHUB_WORKSPACE is not a directory. Aborting cleanup.');
+              process.exit(1);
+            }
+
+            const directoriesToRemove = [
+              path.join(workspace, '.windsor'),
+              path.join(workspace, 'terraform'),
+              path.join(workspace, 'kustomize')
+            ];
+
+            const filesToRemove = [
+              path.join(workspace, '.yamllint'),
+              path.join(workspace, '.gitignore'),
+              path.join(workspace, '.editorconfig')
+            ];
+
+            // Remove directories
+            directoriesToRemove.forEach(dir => {
+              if (fs.existsSync(dir)) {
+                console.log(`Removing directory: ${dir}`);
+                fs.rmSync(dir, { recursive: true, force: true });
+              }
+            });
+
+            // Remove files
+            filesToRemove.forEach(file => {
+              if (fs.existsSync(file)) {
+                console.log(`Removing file: ${file}`);
+                fs.rmSync(file, { force: true });
+              }
+            });
+
+            // Remove all files in the workspace
+            fs.readdirSync(workspace).forEach(file => {
+              const filePath = path.join(workspace, file);
+              if (fs.lstatSync(filePath).isFile()) {
+                console.log(`Removing file: ${filePath}`);
+                fs.rmSync(filePath, { force: true });
+              }
+            });
+
+          } catch (error) {
+            console.error('Error during Windsor clean-up:', error.message);
+            process.exit(1);
+          }
+
+    - name: Remove tools
+      if: always() 
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const { execSync } = require('child_process');
+
+          try {
+            console.log('Removing tools with Aqua...');
+            execSync('aqua rm --all', { stdio: 'inherit' });
+            console.log('Tools removed successfully.');
+          } catch (error) {
+            console.error('Error removing tools:', error.message);
+            process.exit(1);
+          }
+    
+    - name: Check for Remaining Files
+      if: always() 
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          const os = require('os');
+
+          try {
+            const workspace = process.env.GITHUB_WORKSPACE;
+            const platform = os.platform();
+            console.log(`Checking for remaining files in the workspace on ${platform}...`);
+
+            let remainingFiles = [];
+
+            if (platform === 'win32') {
+              // Windows: Use fs.readdirSync to list files
+              remainingFiles = fs.readdirSync(workspace).filter(file => {
+                const filePath = path.join(workspace, file);
+                return fs.lstatSync(filePath).isFile();
+              });
+            } else {
+              // Linux/macOS: Use fs.readdirSync to list files
+              remainingFiles = fs.readdirSync(workspace).filter(file => {
+                const filePath = path.join(workspace, file);
+                return fs.lstatSync(filePath).isFile();
+              });
+            }
+
+            if (remainingFiles.length > 0) {
+              console.error('Error: Found files in the workspace that should be removed:');
+              remainingFiles.forEach(file => console.log(file));
+              process.exit(1);
+            } else {
+              console.log('No remaining files found in the workspace.');
+            }
+          } catch (error) {
+            console.error('Error checking for remaining files:', error.message);
+            process.exit(1);
+          }
+    

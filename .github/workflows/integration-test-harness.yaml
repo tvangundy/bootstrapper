@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Target Repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
         with:
           repository: ${{ inputs.repo_owner }}/${{ inputs.repo_name }}
           token: ${{ inputs.token }}
@@ -101,6 +101,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
 
+      - name: Run Integration Test
+        uses: ./.github/actions/integration-test
+        with:
+          windsor_up: ${{ inputs.windsor_up }}
+          version: ${{ inputs.version }}
+          release: ${{ inputs.release }}
+          windsor_test_config: ${{ inputs.windsor_test_config }}
+          docker_host: ${{ matrix.runner.docker_host }}
+          token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}
+          
       - name: Run Integration Test
         run: |
           echo "Running integration tests"
