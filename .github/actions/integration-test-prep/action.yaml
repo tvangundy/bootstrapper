@@ -42,7 +42,10 @@ runs:
   steps:
 
     - name: Checkout code
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      uses: actions/checkout@v4.2.2
+      with:
+        repository: ${{ inputs.repo_owner }}/${{ inputs.repo_name }}
+        token: ${{ inputs.token }}
 
     - name: Determine Platform Type
       id: detect_platform
