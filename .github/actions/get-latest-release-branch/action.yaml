@@ -43,7 +43,6 @@ runs:
       with:
         github-token: ${{ inputs.token }}
         script: |
-          const core = require('@actions/core');
           const owner = '${{ inputs.repo_owner }}';
           const repo = '${{ inputs.repo_name }}';
           const releaseInput = '${{ inputs.release }}';
