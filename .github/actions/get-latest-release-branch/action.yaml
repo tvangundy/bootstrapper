@@ -43,6 +43,7 @@ runs:
       with:
         github-token: ${{ inputs.token }}
         script: |
+          const core = require('@actions/core');
           const owner = '${{ inputs.repo_owner }}';
           const repo = '${{ inputs.repo_name }}';
           const releaseInput = '${{ inputs.release }}';
@@ -84,11 +85,6 @@ runs:
           } else {
             release_number = release;
           }
-          core.exportVariable('release_number', release_number);
-          core.setOutput('release_number', release_number);
-          console.log(`Release Number: ${release_number}`);
-          }
-
           core.exportVariable('version', version);
           core.setOutput('version', version);
 
@@ -105,3 +101,4 @@ runs:
           console.log(`Release Number: ${release_number}`);
           console.log(`Release: ${release}`);
           console.log(`Latest Release Branch: ${release}`);
+
