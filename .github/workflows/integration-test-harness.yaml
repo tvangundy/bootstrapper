@@ -8,6 +8,14 @@ on:
         required: false
         type: boolean
         default: false
+      repo_owner:
+        description: 'Repository Owner'
+        required: false
+        default: 'windsorcli'
+      repo_name:
+        description: 'Repository Name'
+        required: false
+        default: 'cli'
       version:
         description: 'Version'
         required: false        
@@ -24,6 +32,17 @@ permissions:
   contents: read
 
 jobs:
+  # Check out the target repository
+  checkout-target-repo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Target Repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ inputs.repo_owner }}/${{ inputs.repo_name }}
+          token: ${{ inputs.token }}
+          path: ${{ github.workspace }}
+
   debug-workflow:
     runs-on: ubuntu-latest
     steps:
