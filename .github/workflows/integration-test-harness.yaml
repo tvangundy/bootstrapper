@@ -24,7 +24,15 @@ permissions:
   contents: read
 
 jobs:
+  debug-workflow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug Workflow - Integration Test Harness
+        run: |
+          echo "Debugging workflow"
+          
   integration-test-prep:
+    needs: debug-workflow
     runs-on: ubuntu-latest
     outputs:
       runner_list: ${{ steps.set-job-outputs.outputs.runner_list }}
