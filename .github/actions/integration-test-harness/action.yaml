@@ -34,6 +34,7 @@ runs:
     - name: Debug Workflow - Integration Test Harness
       run: |
         echo "Debugging workflow"
+      shell: bash
           
     - name: Checkout code
       uses: actions/checkout@v4.2.2
@@ -60,6 +61,7 @@ runs:
         echo "release=${{ env.latest_release_branch }}"
         echo "runner_list=${{ env.runner_list }}"
         echo "windsor_test_config=${{ env.windsor_test_config }}"
+      shell: bash
 
     - name: Run Integration Test
       run: |
@@ -67,3 +69,4 @@ runs:
         echo "Version: ${{ inputs.version }}"
         echo "Release: ${{ inputs.release }}"
         echo "Windsor Test Config: ${{ inputs.windsor_test_config }}"
+      shell: bash
