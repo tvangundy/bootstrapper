@@ -26,7 +26,7 @@ jobs:
         run: |
           cat ./.github/workflows/integration-test-harness.yaml
 
-      - name: Run Integration Tests
+      - name: Run Integration Test Harness
         uses: ./.github/actions/integration-test-harness
         with:
           windsor_up: ${{ github.event.client_payload.windsor_up }}

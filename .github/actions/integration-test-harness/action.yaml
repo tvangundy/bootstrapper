@@ -50,7 +50,15 @@ runs:
           
     - name: Checkout code
       uses: actions/checkout@v4.2.2
-          
+
+    - name: Confirm inputs.token has a real value
+      run: |
+        if [ -z "${{ inputs.token }}" ]; then
+          echo "inputs.token is empty"
+          exit 1
+        fi
+      shell: bash
+  
     - name: Run Integration Test Prep Action
       uses: ./.github/actions/integration-test-prep
       with:

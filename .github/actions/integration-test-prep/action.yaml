@@ -55,16 +55,7 @@ runs:
           core.setOutput('platform', platform);
           core.exportVariable('PLATFORM_OS', platform);
 
-    - name: Get Latest Release Branch
-      uses: ./.github/actions/get-latest-release-branch
-      with:
-        github-token: ${{ inputs.token }}
-        version: ${{ inputs.version }}
-        release: ${{ inputs.release }}
-        repo_owner: ${{ inputs.repo_owner }}
-        repo_name: ${{ inputs.repo_name }}
-        token: ${{ inputs.token }}    
-        
+
     - name: Confirm inputs.token has a real value
       run: |
         if [ -z "${{ inputs.token }}" ]; then
@@ -73,6 +64,15 @@ runs:
         fi
       shell: bash
 
+    - name: Get Latest Release Branch
+      uses: ./.github/actions/get-latest-release-branch
+      with:
+        version: ${{ inputs.version }}
+        release: ${{ inputs.release }}
+        repo_owner: ${{ inputs.repo_owner }}
+        repo_name: ${{ inputs.repo_name }}
+        token: ${{ inputs.token }}    
+        
     - name: Set Windsor Test Config
       uses: actions/github-script@v7
       with:
