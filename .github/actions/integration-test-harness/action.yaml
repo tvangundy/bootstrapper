@@ -6,6 +6,12 @@ inputs:
     description: 'Run Windsor Up'
     required: false
     default: false
+  repo_owner:
+    description: 'Repository owner'
+    required: true
+  repo_name:
+    description: 'Repository name'
+    required: true
   version:
     description: 'Version'
     required: false        
