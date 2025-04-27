@@ -27,6 +27,9 @@ inputs:
     description: 'GitHub Token'
     required: true
 
+permissions:
+  contents: read
+  
 outputs:
   runner_list:
     description: 'List of runners'
