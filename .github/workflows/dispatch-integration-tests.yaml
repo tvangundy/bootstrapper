@@ -18,6 +18,10 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ github.workspace }}
 
+      - name: List the contents of the home directory
+        run: |
+          ls -la
+
       - name: Run Integration Tests
         uses: ./.github/workflows/integration-test-harness.yaml
         with:
