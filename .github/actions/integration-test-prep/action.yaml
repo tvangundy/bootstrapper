@@ -56,14 +56,6 @@ runs:
           core.exportVariable('PLATFORM_OS', platform);
 
 
-    - name: Confirm inputs.token has a real value
-      run: |
-        if [ -z "${{ inputs.token }}" ]; then
-          echo "inputs.token is empty"
-          exit 1
-        fi
-      shell: bash
-
     - name: Get Latest Release Branch
       uses: ./.github/actions/get-latest-release-branch
       with:
