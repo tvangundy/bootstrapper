@@ -65,6 +65,8 @@ jobs:
       - name: Run Integration Test Prep Action
         uses: ./.github/actions/integration-test-prep
         with:
+          repo-owner: ${{ inputs.repo_owner }}
+          repo-name: ${{ inputs.repo_name }}
           version: ${{ inputs.version }}
           release: ${{ inputs.release }}
           windsor_test_config: ${{ inputs.windsor_test_config }}
