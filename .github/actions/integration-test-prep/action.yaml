@@ -37,7 +37,7 @@ outputs:
     value: ${{ steps.runner_list.outputs.RUNNER_LIST }}
   WINDSOR_TEST_CONFIG_PATH:
     description: 'Platform-specific path to the Windsor test configuration file'
-    value: ${{ steps.config_path.outputs.windsor_test_config }}
+    value: ${{ steps.config_path.outputs.WINDSOR_TEST_CONFIG_PATH }}
 
 permissions:
   contents: read
@@ -47,11 +47,11 @@ runs:
 
   steps:
     - name: Checkout code
-      uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
+      uses: actions/checkout@v4
 
     - name: Determine Platform Type
       id: platform_detection
-      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      uses: actions/github-script@v7
       with:
         script: |
           try {
@@ -92,7 +92,7 @@ runs:
             
             // Set both output and environment variable (uppercase for env var)
             core.exportVariable('WINDSOR_TEST_CONFIG_PATH', windsorTestConfigPath);
-            core.setOutput('windsor_test_config', windsorTestConfigPath);
+            core.setOutput('WINDSOR_TEST_CONFIG_PATH', windsorTestConfigPath);
             
             console.log(`Windsor Test Config Path: ${windsorTestConfigPath}`);
           } catch (error) {
@@ -151,6 +151,6 @@ runs:
         echo "----------------------------------------"
         echo "RUNNER_LIST: ${{ steps.runner_list.outputs.RUNNER_LIST }}"
         echo "PLATFORM_OS: ${{ steps.platform_detection.outputs.PLATFORM_OS }}"
-        echo "WINDSOR_TEST_CONFIG_PATH: ${{ steps.config_path.outputs.windsor_test_config }}"
+        echo "WINDSOR_TEST_CONFIG_PATH: ${{ steps.config_path.outputs.WINDSOR_TEST_CONFIG_PATH }}"
         echo "----------------------------------------"
       shell: bash

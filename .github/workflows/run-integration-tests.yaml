@@ -4,27 +4,27 @@ on:
   workflow_dispatch:
     inputs:
       windsor_up:
-        description: 'Run Windsor Up'
+        description: 'Whether to run Windsor Up before tests (true/false)'
         required: false
         type: boolean
         default: false
+      release:
+        description: 'Release branch name (e.g., release-latest, release-1.0.0, 1.0.0)'
+        required: false
+        default: 'release-latest'
+      version:
+        description: 'Version in semantic format (e.g., v1.0.0)'
+        required: false        
       repo_owner:
-        description: 'Repository Owner'
+        description: 'Repository owner for the target repository to test'
         required: false
         default: 'windsorcli'
       repo_name:
-        description: 'Repository Name'
+        description: 'Repository name for the target repository to test'
         required: false
         default: 'cli'
-      version:
-        description: 'Version'
-        required: false        
-      release:
-        description: 'Release Branch'
-        required: false
-        default: 'release-latest'
       windsor_test_config:
-        description: 'Windsor Test Config'
+        description: 'Windsor test configuration file to use (without path)'
         required: false
         default: 'ci-self-hosted-tests.yaml'
         
