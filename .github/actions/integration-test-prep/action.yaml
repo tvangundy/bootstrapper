@@ -2,18 +2,22 @@ name: 'Integration Test Prep'
 description: 'Prepares the environment for the integration test'
 
 inputs:
-  target_repo_owner:
+  repo_owner:
     description: 'Repository owner'
     required: true
-  target_repo_name:
+  repo_name:
     description: 'Repository name'
     required: true
   version:
     description: 'Version'
     required: false
     default: ''
-  release:
-    description: 'Release'
+  release_branch:
+    description: 'Release Branch'
+    required: false
+    default: ''
+  release_number:
+    description: 'Release Number'
     required: false
     default: ''
   windsor_test_config:
@@ -23,15 +27,6 @@ inputs:
   token:
     description: 'GitHub token'
     required: true
-# outputs:
-#   runner_list:
-#     description: 'Runner list'
-#   latest_release_branch:
-#     description: 'Latest release branch'
-#   version:
-#     description: 'Version'
-#   windsor_test_config:
-#     description: 'Windsor Test Config'
 
 permissions:
   contents: read
@@ -44,16 +39,14 @@ runs:
       uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
 
     - name: Determine Platform Type
-      id: detect_platform
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
       with:
         script: |
           const os = require('os');
           const platform = os.platform();
-          console.log(`Detected platform: ${platform}`);
-          core.setOutput('platform', platform);
           core.exportVariable('PLATFORM_OS', platform);
-          
+          console.log(`Detected platform: ${platform}`);
+
     - name: Set Windsor Test Config
       uses: actions/github-script@v7
       with:
@@ -74,45 +67,11 @@ runs:
             windsorTestConfigValue = `tests/configs/${windsorTestConfig}`;
           }
           console.log(`Outgoing: Windsor Test Config: ${windsorTestConfigValue}`);
-          core.setOutput('windsor_test_config', windsorTestConfigValue);
           core.exportVariable('windsor_test_config', windsorTestConfigValue);
           console.log(`Windsor Test Config: ${windsorTestConfigValue}`);
 
-    - name: Print EnvironmentVariables
-      run: |
-        echo "windsor_test_config: ${{ env.windsor_test_config }}"
-        echo "latest_release_branch: ${{ env.latest_release_branch }}"
-        echo "version: ${{ env.version }}"
-        echo "release_number: ${{ env.release_number }}"
-        echo "release: ${{ env.release }}"
-      shell: bash
-      
     - name: Build Runner List
       uses: ./.github/actions/build-runner-list
       with:
-        windsor_test_config: '${{ env.windsor_test_config }}'
+        config_file_path: '${{ env.windsor_test_config }}'
         
-    - name: Set job outputs from environment variables
-      id: set-job-outputs
-      uses: actions/github-script@v7
-      with:
-        script: |
-          console.log(`Runner List: ${process.env.runner_list}`);
-          console.log(`Latest Release Branch: ${process.env.latest_release_branch}`);
-          console.log(`Version: ${process.env.version}`);
-          console.log(`Windsor Test Config: ${process.env['windsor_test_config']}`);
-
-          const runnerList = process.env.runner_list;
-          const latestReleaseBranch = process.env.latest_release_branch;
-          const version = process.env.version;
-          const windsorTestConfig = process.env['windsor_test_config'];
-
-          core.setOutput('runner_list', runnerList);
-          core.setOutput('latest_release_branch', latestReleaseBranch);
-          core.setOutput('version', version);
-          core.setOutput('windsor_test_config', windsorTestConfig);
-
-          core.exportVariable('runner_list', runnerList);
-          core.exportVariable('latest_release_branch', latestReleaseBranch);
-          core.exportVariable('version', version);
-          core.exportVariable('windsor_test_config', windsorTestConfig);

@@ -1,9 +1,9 @@
 name: 'Build Runner List'
-description: 'Builds the runner list'
+description: 'Extracts runner information from Windsor test configuration file and makes it available for workflows'
 
 inputs:
-  windsor_test_config:
-    description: 'Windsor Test Config'
+  config_file_path:
+    description: 'Path to Windsor test configuration file (relative to workspace root)'
     required: false
     default: 'tests/configs/ci-integration-tests.yaml'
 
@@ -31,30 +31,52 @@ runs:
           const path = require('path');
           const yaml = require('js-yaml');
 
-          console.log(`Windsor Test Config: ${{ inputs['windsor_test_config'] }}`);
+          try {
+            // Load the YAML configuration file
+            const configFilePath = '${{ inputs.config_file_path }}';
+            console.log(`Processing Windsor Test Config: ${configFilePath}`);
+            
+            const configPath = path.join(process.env.GITHUB_WORKSPACE, configFilePath);
+            
+            if (!fs.existsSync(configPath)) {
+              throw new Error(`Configuration file not found: ${configPath}`);
+            }
+            
+            const configFile = fs.readFileSync(configPath, 'utf8');
+            const config = yaml.load(configFile);
 
-          // Load the YAML configuration file
-          const windsorTestConfig = '${{ inputs['windsor_test_config'] }}';
-          const configPath = path.join(process.env.GITHUB_WORKSPACE, windsorTestConfig);
-          const configFile = fs.readFileSync(configPath, 'utf8');
-          const config = yaml.load(configFile);
+            // Extract runners list
+            const runners = config.runners;
+            if (!runners || !Array.isArray(runners) || runners.length === 0) {
+              throw new Error(`No valid runners found in ${configFilePath}`);
+            }
 
-          // Extract runners list
-          const runners = config.runners;
-          if (!runners) {
-            throw new Error(`Error: No runners found in ${windsorTestConfig}.`);
+            // Prepare runner list with required properties
+            const runnerList = runners.map(runner => {
+              if (!runner.os || !runner.label) {
+                console.warn(`Warning: Runner missing required fields: ${JSON.stringify(runner)}`);
+              }
+              
+              return {
+                os: runner.os || '',
+                label: runner.label || '',
+                arch: runner.arch || '',
+                docker_host: runner.docker_host || ''
+              };
+            });
+
+            // Convert runner list to JSON string
+            const runnerListJson = JSON.stringify(runnerList);
+
+            // Set the runner list as an environment variable (following uppercase convention)
+            core.exportVariable('RUNNER_LIST', runnerListJson);
+            console.log(`Successfully extracted ${runnerList.length} runners from config`);
+            
+            // Optional: Log a sample of the runners (first 2)
+            if (runnerList.length > 0) {
+              console.log(`Sample runners: ${JSON.stringify(runnerList.slice(0, 2))}`);
+            }
+          } catch (error) {
+            core.setFailed(`Error building runner list: ${error.message}`);
+            throw error;
           }
-
-          // Prepare runner list
-          const runnerList = runners.map(runner => ({
-            os: runner.os,
-            label: runner.label,
-            arch: runner.arch,
-            docker_host: runner.docker_host
-          }));
-
-          // Convert runner list to JSON string
-          const runnerListJson = JSON.stringify(runnerList);
-
-          // Set the runner list as an environment variable and output
-          core.exportVariable('runner_list', runnerListJson);
