@@ -38,6 +38,15 @@ outputs:
   WINDSOR_TEST_CONFIG_PATH:
     description: 'Platform-specific path to the Windsor test configuration file'
     value: ${{ steps.config_path.outputs.WINDSOR_TEST_CONFIG_PATH }}
+  VERSION:
+    description: 'Version in semantic format (e.g., v1.0.0)'
+    value: ${{ steps.set_release_info.outputs.VERSION }}
+  RELEASE_BRANCH:
+    description: 'Release branch name (e.g., release-1.0.0)'
+    value: ${{ steps.set_release_info.outputs.RELEASE_BRANCH }}
+  RELEASE_NUMBER:
+    description: 'Release number (e.g., 1.0.0)'
+    value: ${{ steps.set_release_info.outputs.RELEASE_NUMBER }}
 
 permissions:
   contents: read
@@ -48,6 +57,34 @@ runs:
   steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      
+    - name: Set Release Information
+      id: set_release_info
+      uses: actions/github-script@v7
+      with:
+        script: |
+          try {
+            const version = '${{ inputs.version }}' || '';
+            const releaseBranch = '${{ inputs.release_branch }}' || '';
+            const releaseNumber = '${{ inputs.release_number }}' || '';
+            
+            console.log('Setting release information:');
+            console.log(`- Version: ${version}`);
+            console.log(`- Release Branch: ${releaseBranch}`);
+            console.log(`- Release Number: ${releaseNumber}`);
+            
+            // Set both outputs and environment variables
+            core.exportVariable('VERSION', version);
+            core.exportVariable('RELEASE_BRANCH', releaseBranch);
+            core.exportVariable('RELEASE_NUMBER', releaseNumber);
+            
+            core.setOutput('VERSION', version);
+            core.setOutput('RELEASE_BRANCH', releaseBranch);
+            core.setOutput('RELEASE_NUMBER', releaseNumber);
+          } catch (error) {
+            core.setFailed(`Failed to set release information: ${error.message}`);
+            throw error;
+          }
 
     - name: Determine Platform Type
       id: platform_detection
@@ -140,6 +177,12 @@ runs:
               throw new Error('WINDSOR_TEST_CONFIG_PATH is empty or undefined');
             }
             console.log(`Validated Windsor test config path: ${windsorTestConfigPath}`);
+            
+            // Validate release information is accessible
+            console.log(`Release information validation:`);
+            console.log(`- VERSION: ${process.env.VERSION || '(empty)'}`);
+            console.log(`- RELEASE_BRANCH: ${process.env.RELEASE_BRANCH || '(empty)'}`);
+            console.log(`- RELEASE_NUMBER: ${process.env.RELEASE_NUMBER || '(empty)'}`);
           } catch (error) {
             core.setFailed(`Output validation failed: ${error.message}`);
             throw error;
@@ -152,5 +195,8 @@ runs:
         echo "RUNNER_LIST: ${{ steps.runner_list.outputs.RUNNER_LIST }}"
         echo "PLATFORM_OS: ${{ steps.platform_detection.outputs.PLATFORM_OS }}"
         echo "WINDSOR_TEST_CONFIG_PATH: ${{ steps.config_path.outputs.WINDSOR_TEST_CONFIG_PATH }}"
+        echo "VERSION: ${{ steps.set_release_info.outputs.VERSION }}"
+        echo "RELEASE_BRANCH: ${{ steps.set_release_info.outputs.RELEASE_BRANCH }}"
+        echo "RELEASE_NUMBER: ${{ steps.set_release_info.outputs.RELEASE_NUMBER }}"
         echo "----------------------------------------"
       shell: bash
