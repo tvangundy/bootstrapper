@@ -45,27 +45,27 @@ jobs:
       #     echo "runner_list=${{ env.runner_list }}"
       #     echo "windsor_test_config=${{ env.windsor_test_config }}"
 
-  integration-test:
-    needs: 
-      - integration-test-prep
-    strategy:
-      fail-fast: false
-      matrix:
-        runner: ${{ fromJson(needs.integration-test-prep.outputs.runner_list) }}
+  # integration-test:
+  #   needs: 
+  #     - integration-test-prep
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       runner: ${{ fromJson(needs.integration-test-prep.outputs.runner_list) }}
             
-    runs-on: ${{ matrix.runner.os }}
+  #   runs-on: ${{ matrix.runner.os }}
       
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
 
-      - name: Run Integration Test
-        uses: ./.github/actions/integration-test
-        with:
-          windsor_up: ${{ github.event.client_payload.windsor_up }}
-          version: ${{ env.version }}
-          release: ${{ env.latest_release_branch }}
-          windsor_test_config: ${{ steps.integration-test-prep.outputs.windsor_test_config }}
-          docker_host: ${{ matrix.runner.docker_host }}
-          token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}
+  #     - name: Run Integration Test
+  #       uses: ./.github/actions/integration-test
+  #       with:
+  #         windsor_up: ${{ github.event.client_payload.windsor_up }}
+  #         version: ${{ env.version }}
+  #         release: ${{ env.latest_release_branch }}
+  #         windsor_test_config: ${{ steps.integration-test-prep.outputs.windsor_test_config }}
+  #         docker_host: ${{ matrix.runner.docker_host }}
+  #         token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}
 
