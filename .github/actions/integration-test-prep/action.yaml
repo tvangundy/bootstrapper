@@ -1,31 +1,31 @@
 name: 'Integration Test Prep'
-description: 'Prepares the environment for the integration test'
+description: 'Prepares the environment for integration tests by setting up configuration and runner information'
 
 inputs:
   repo_owner:
-    description: 'Repository owner'
+    description: 'Repository owner for the target repository'
     required: true
   repo_name:
-    description: 'Repository name'
+    description: 'Repository name for the target repository'
     required: true
   version:
-    description: 'Version'
+    description: 'Version in semantic format (e.g., v1.0.0)'
     required: false
     default: ''
   release_branch:
-    description: 'Release Branch'
+    description: 'Release branch name (e.g., release-1.0.0)'
     required: false
     default: ''
   release_number:
-    description: 'Release Number'
+    description: 'Release number (e.g., 1.0.0)'
     required: false
     default: ''
   windsor_test_config:
-    description: 'Windsor Test Config'
+    description: 'Windsor test configuration filename (without path)'
     required: false
     default: 'ci-integration-tests.yaml'
   token:
-    description: 'GitHub token'
+    description: 'GitHub token for API authentication'
     required: true
 
 outputs:
@@ -35,6 +35,9 @@ outputs:
   RUNNER_LIST:
     description: 'JSON string containing the list of runners from the Windsor test config'
     value: ${{ steps.runner_list.outputs.RUNNER_LIST }}
+  WINDSOR_TEST_CONFIG_PATH:
+    description: 'Platform-specific path to the Windsor test configuration file'
+    value: ${{ steps.config_path.outputs.windsor_test_config }}
 
 permissions:
   contents: read
@@ -51,45 +54,103 @@ runs:
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
       with:
         script: |
-          const os = require('os');
-          const platform = os.platform();
-          core.exportVariable('PLATFORM_OS', platform);
-          core.setOutput('PLATFORM_OS', platform);
-          console.log(`Detected platform: ${platform}`);
+          try {
+            const os = require('os');
+            const platform = os.platform();
+            
+            // Set both output and environment variable
+            core.exportVariable('PLATFORM_OS', platform);
+            core.setOutput('PLATFORM_OS', platform);
+            
+            console.log(`Detected platform: ${platform}`);
+          } catch (error) {
+            core.setFailed(`Failed to detect platform: ${error.message}`);
+            throw error;
+          }
 
-    - name: Set Windsor Test Config
+    - name: Set Windsor Test Config Path
       id: config_path
       uses: actions/github-script@v7
       with:
         script: |
-          console.log(`Windsor Test Config: ${{ inputs.windsor_test_config }}`);
-          const platform = process.env.PLATFORM_OS;
-          const windsorTestConfig = '${{ inputs.windsor_test_config }}';
+          try {
+            const platform = process.env.PLATFORM_OS;
+            const windsorTestConfig = '${{ inputs.windsor_test_config }}';
+            
+            console.log(`Configuring for platform: ${platform}`);
+            console.log(`Input config file: ${windsorTestConfig}`);
 
-          console.log(`Platform: ${platform}`);
-          console.log(`Incoming: Windsor Test Config: ${{ inputs.windsor_test_config }}`);
-
-          let windsorTestConfigValue;
-          if (platform === 'win32') {
-            console.log("Setting Windsor Test Config for Windows");
-            windsorTestConfigValue = `tests\\configs\\${windsorTestConfig}`;
-          } else {
-            console.log("Setting Windsor Test Config for Linux/macOS");
-            windsorTestConfigValue = `tests/configs/${windsorTestConfig}`;
+            // Determine platform-specific path separator
+            let windsorTestConfigPath;
+            if (platform === 'win32') {
+              windsorTestConfigPath = `tests\\configs\\${windsorTestConfig}`;
+              console.log("Using Windows path format");
+            } else {
+              windsorTestConfigPath = `tests/configs/${windsorTestConfig}`;
+              console.log("Using UNIX path format");
+            }
+            
+            // Set both output and environment variable (uppercase for env var)
+            core.exportVariable('WINDSOR_TEST_CONFIG_PATH', windsorTestConfigPath);
+            core.setOutput('windsor_test_config', windsorTestConfigPath);
+            
+            console.log(`Windsor Test Config Path: ${windsorTestConfigPath}`);
+          } catch (error) {
+            core.setFailed(`Failed to set Windsor test config path: ${error.message}`);
+            throw error;
           }
-          console.log(`Outgoing: Windsor Test Config: ${windsorTestConfigValue}`);
-          core.exportVariable('windsor_test_config', windsorTestConfigValue);
-          core.setOutput('windsor_test_config', windsorTestConfigValue);
-          console.log(`Windsor Test Config: ${windsorTestConfigValue}`);
 
     - name: Build Runner List
       id: runner_list
       uses: ./.github/actions/build-runner-list
       with:
-        config_file_path: '${{ env.windsor_test_config }}'
+        config_file_path: '${{ env.WINDSOR_TEST_CONFIG_PATH }}'
 
-    - name: Print Outputs
+    - name: Validate Outputs
+      uses: actions/github-script@v7
+      with:
+        script: |
+          try {
+            // Check that runner list is valid JSON
+            const runnerList = process.env.RUNNER_LIST;
+            if (!runnerList) {
+              throw new Error('RUNNER_LIST is empty or undefined');
+            }
+            
+            try {
+              const parsedRunners = JSON.parse(runnerList);
+              if (!Array.isArray(parsedRunners) || parsedRunners.length === 0) {
+                throw new Error('RUNNER_LIST is not a valid array or is empty');
+              }
+              console.log(`Validated runner list: ${parsedRunners.length} runners found`);
+            } catch (parseError) {
+              throw new Error(`RUNNER_LIST is not valid JSON: ${parseError.message}`);
+            }
+            
+            // Check that platform OS is set
+            const platformOs = process.env.PLATFORM_OS;
+            if (!platformOs) {
+              throw new Error('PLATFORM_OS is empty or undefined');
+            }
+            console.log(`Validated platform OS: ${platformOs}`);
+            
+            // Check that Windsor test config path is set
+            const windsorTestConfigPath = process.env.WINDSOR_TEST_CONFIG_PATH;
+            if (!windsorTestConfigPath) {
+              throw new Error('WINDSOR_TEST_CONFIG_PATH is empty or undefined');
+            }
+            console.log(`Validated Windsor test config path: ${windsorTestConfigPath}`);
+          } catch (error) {
+            core.setFailed(`Output validation failed: ${error.message}`);
+            throw error;
+          }
+
+    - name: Print Action Outputs
       run: |
-        echo "RUNNER_LIST Output: ${{ steps.runner_list.outputs.RUNNER_LIST }}"
-        echo "Detected PLATFORM_OS: ${{ steps.platform_detection.outputs.PLATFORM_OS }}"
+        echo "Integration Test Prep Outputs"
+        echo "----------------------------------------"
+        echo "RUNNER_LIST: ${{ steps.runner_list.outputs.RUNNER_LIST }}"
+        echo "PLATFORM_OS: ${{ steps.platform_detection.outputs.PLATFORM_OS }}"
+        echo "WINDSOR_TEST_CONFIG_PATH: ${{ steps.config_path.outputs.windsor_test_config }}"
+        echo "----------------------------------------"
       shell: bash
