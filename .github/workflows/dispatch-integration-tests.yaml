@@ -10,12 +10,6 @@ permissions:
 jobs:
   integration-test-prep:
     runs-on: ubuntu-latest
-    # outputs:
-    #   runner_list: ${{ steps.set-job-outputs.outputs.runner_list }}
-    #   latest_release_branch: ${{ steps.set-job-outputs.outputs.latest_release_branch }}
-    #   version: ${{ steps.set-job-outputs.outputs.version }}
-    #   release_number: ${{ steps.set-job-outputs.outputs.release_number }}
-    #   windsor_test_config: ${{ steps.set-job-outputs.outputs.windsor_test_config }}
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -34,6 +28,7 @@ jobs:
           echo "----------------------------------------"
           
       - name: Run Integration Test Prep Action
+        id: test_prep
         uses: ./.github/actions/integration-test-prep
         with:
           repo_owner: ${{ github.event.client_payload.target_repo_owner }}
@@ -44,27 +39,19 @@ jobs:
           windsor_test_config: ${{ github.event.client_payload.windsor_test_config }}
           token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}    
 
-      - name: New Environment Variable Settings
+      - name: Print Integration Test Prep Results
         run: |
-          echo "runner_list=${{ env.runner_list }}"
-          echo "windsor_test_config=${{ env.windsor_test_config }}"
-          echo "platform=${{ env.platform }}"
+          echo "----------------------------------------"
+          echo "Environment Variables:"
+          echo "RUNNER_LIST: ${{ env.RUNNER_LIST }}"
+          echo "PLATFORM_OS: ${{ env.PLATFORM_OS }}"
+          echo "----------------------------------------"
+          echo "Action Outputs:"
+          echo "RUNNER_LIST: ${{ steps.test_prep.outputs.RUNNER_LIST }}"
+          echo "PLATFORM_OS: ${{ steps.test_prep.outputs.PLATFORM_OS }}"
+          echo "----------------------------------------"
         shell: bash
 
-      # - name: Set job outputs
-      #   id: set-job-outputs
-      #   run: |
-      #     runner_list=$(echo '${{ env.runner_list }}' | jq -c .)
-
-      #     echo "::set-output name=runner_list::$runner_list"
-      #     echo "::set-output name=latest_release_branch::${{ env.latest_release_branch }}"
-      #     echo "::set-output name=version::${{ env.version }}"
-      #     echo "::set-output name=windsor_test_config::${{ env.windsor_test_config }}"
-
-      #     echo "version=${{ env.version }}"
-      #     echo "release=${{ env.latest_release_branch }}"
-      #     echo "runner_list=${{ env.runner_list }}"
-      #     echo "windsor_test_config=${{ env.windsor_test_config }}"
 
   # integration-test:
   #   needs: 
