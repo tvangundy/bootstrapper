@@ -6,14 +6,6 @@ inputs:
       required: false
       type: boolean
       default: false
-    repo_owner:
-      description: 'Repository Owner'
-      required: false
-      default: 'windsorcli'
-    repo_name:
-      description: 'Repository Name'
-      required: false
-      default: 'integration-tests'
     version:
       description: 'Version [vX.Y.Z]'
       required: false
@@ -40,13 +32,6 @@ runs:
   steps:
     - name: Checkout code
       uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
-
-    - name: Checkout target repository
-      uses: actions/checkout@v4.2.2
-      with:
-        repository: ${{ inputs.repo_owner }}/${{ inputs.repo_name }}
-        token: ${{ inputs.token }}
-        path: ${{ inputs.repo_name }}
 
     - name: Determine Platform Type
       id: detect_platform
