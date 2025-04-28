@@ -23,8 +23,8 @@ jobs:
       - name: Run Integration Test Prep Action
         uses: ./.github/actions/integration-test-prep
         with:
-          repo_owner: ${{ github.event.client_payload.repo_owner }}
-          repo_name: ${{ github.event.client_payload.repo_name }}
+          target_repo_owner: ${{ github.event.client_payload.target_repo_owner }}
+          target_repo_name: ${{ github.event.client_payload.target_repo_name }}
           version: ${{ github.event.client_payload.version }}
           release: ${{ github.event.client_payload.release }}
           windsor_test_config: ${{ github.event.client_payload.windsor_test_config }}
