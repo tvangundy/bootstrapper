@@ -7,6 +7,14 @@ inputs:
     required: false
     default: 'tests/configs/ci-integration-tests.yaml'
 
+outputs:
+  runner_list:
+    description: 'JSON string containing the list of runners extracted from config'
+    value: ${{ steps.build_runners.outputs.runner_list }}
+  platform_os:
+    description: 'JSON string containing the list of unique platform OS values from runners'
+    value: ${{ steps.build_runners.outputs.platform_os }}
+
 permissions:
   contents: read
 
@@ -24,6 +32,7 @@ runs:
       shell: bash
 
     - name: Build Runner List
+      id: build_runners
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
       with:
         script: |
@@ -65,16 +74,27 @@ runs:
               };
             });
 
-            // Convert runner list to JSON string
-            const runnerListJson = JSON.stringify(runnerList);
-
-            // Set the runner list as an environment variable (following uppercase convention)
-            core.exportVariable('RUNNER_LIST', runnerListJson);
-            console.log(`Successfully extracted ${runnerList.length} runners from config`);
+            // Extract unique platform OS values
+            const uniqueOsValues = [...new Set(runnerList.map(runner => runner.os).filter(Boolean))];
             
-            // Log the runners (first 2)
+            // Convert lists to JSON strings
+            const runnerListJson = JSON.stringify(runnerList);
+            const platformOsJson = JSON.stringify(uniqueOsValues);
+
+            // Set outputs using the proper GitHub Actions method
+            core.setOutput('runner_list', runnerListJson);
+            core.setOutput('platform_os', platformOsJson);
+            
+            // Also set as environment variables for backward compatibility
+            core.exportVariable('RUNNER_LIST', runnerListJson);
+            core.exportVariable('PLATFORM_OS', platformOsJson);
+            
+            console.log(`Successfully extracted ${runnerList.length} runners from config`);
+            console.log(`Unique OS platforms: ${platformOsJson}`);
+            
+            // Log sample runners
             if (runnerList.length > 0) {
-              console.log(`${JSON.stringify(runnerList.slice(0, 2))}`);
+              console.log(`Sample runners: ${JSON.stringify(runnerList.slice(0, 2))}`);
             }
           } catch (error) {
             core.setFailed(`Error building runner list: ${error.message}`);
