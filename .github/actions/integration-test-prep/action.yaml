@@ -40,14 +40,17 @@ runs:
   using: 'composite'
 
   steps:
-
     - name: Checkout code
+      uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
+
+    - name: Checkout target repository
       uses: actions/checkout@v4.2.2
       with:
         repository: ${{ inputs.repo_owner }}/${{ inputs.repo_name }}
         token: ${{ inputs.token }}
+        path: ${{ inputs.repo_name }}
 
-    - name: List files in the repository
+    - name: List local folder
       run: |
         ls -la
       shell: bash
@@ -62,7 +65,6 @@ runs:
           console.log(`Detected platform: ${platform}`);
           core.setOutput('platform', platform);
           core.exportVariable('PLATFORM_OS', platform);
-
 
     - name: Confirm inputs.token has a real value
       run: |

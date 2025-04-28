@@ -8,18 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  checkout-target-repo:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Target Repository
-        uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
-        with:
-          repository: ${{ github.event.client_payload.repo_owner }}/${{ github.event.client_payload.repo_name }}
-          token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}
-          path: ${{ github.workspace }}
-
   integration-test-prep:
-    needs: checkout-target-repo
     runs-on: ubuntu-latest
     outputs:
       runner_list: ${{ steps.set-job-outputs.outputs.runner_list }}
