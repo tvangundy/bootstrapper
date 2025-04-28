@@ -27,16 +27,7 @@ permissions:
 runs:
   using: 'composite'
 
-  steps:
-
-    - name: Confirm inputs.token has a real value
-      run: |
-        if [ -z "${{ inputs.token }}" ]; then
-          echo "inputs.token is empty"
-          exit 1
-        fi
-      shell: bash
-      
+  steps:      
     - name: Get Latest Release Branch
       id: get_latest_release_branch
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
@@ -99,11 +90,7 @@ runs:
           core.exportVariable('release', release);
           core.setOutput('release', release);
 
-          core.exportVariable('latest_release_branch', release);
-          core.setOutput('latest_release_branch', release);
-
           console.log(`Version: ${version}`);
           console.log(`Release Number: ${release_number}`);
           console.log(`Release: ${release}`);
-          console.log(`Latest Release Branch: ${release}`);
 

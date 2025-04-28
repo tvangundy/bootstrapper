@@ -30,6 +30,15 @@ jobs:
           windsor_test_config: ${{ github.event.client_payload.windsor_test_config }}
           token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}    
 
+      - name: New Environment Variable Settings
+        run: |
+          echo "runner_list=${{ env.runner_list }}"
+          echo "latest_release_branch=${{ env.latest_release_branch }}"
+          echo "version=${{ env.version }}"
+          echo "release=${{ env.latest_release_branch }}"
+          echo "windsor_test_config=${{ env.windsor_test_config }}"
+        shell: bash
+
       # - name: Set job outputs
       #   id: set-job-outputs
       #   run: |
