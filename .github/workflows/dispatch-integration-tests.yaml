@@ -54,11 +54,17 @@ jobs:
           echo "RUNNER_LIST: ${{ env.RUNNER_LIST }}"
           echo "PLATFORM_OS: ${{ env.PLATFORM_OS }}"
           echo "WINDSOR_TEST_CONFIG_PATH: ${{ env.WINDSOR_TEST_CONFIG_PATH }}"
+          echo "VERSION: ${{ env.VERSION }}"
+          echo "RELEASE_BRANCH: ${{ env.RELEASE_BRANCH }}"
+          echo "RELEASE_NUMBER: ${{ env.RELEASE_NUMBER }}"
           echo "----------------------------------------"
           echo "Action Outputs:"
           echo "RUNNER_LIST: ${{ steps.test_prep.outputs.RUNNER_LIST }}"
           echo "PLATFORM_OS: ${{ steps.test_prep.outputs.PLATFORM_OS }}"
           echo "WINDSOR_TEST_CONFIG_PATH: ${{ steps.test_prep.outputs.WINDSOR_TEST_CONFIG_PATH }}"
+          echo "VERSION: ${{ steps.test_prep.outputs.VERSION }}"
+          echo "RELEASE_BRANCH: ${{ steps.test_prep.outputs.RELEASE_BRANCH }}"
+          echo "RELEASE_NUMBER: ${{ steps.test_prep.outputs.RELEASE_NUMBER }}"
           echo "----------------------------------------"
         shell: bash
 
