@@ -1,0 +1,269 @@
+name: 'Dispatch Integration Tests'
+description: 'Dispatches integration tests to a target repository and monitors execution'
+
+inputs:
+  repo_owner:
+    description: 'Repository owner for the integration tests repository'
+    required: true
+  repo_name:
+    description: 'Repository name for the integration tests repository'
+    required: true
+  target_repo_owner:
+    description: 'Repository owner for the target repository to test'
+    required: true
+  target_repo_name:
+    description: 'Repository name for the target repository to test'
+    required: true
+  version:
+    description: 'Version in semantic format (e.g., v1.0.0)'
+    required: false
+    default: ''
+  release_branch:
+    description: 'Release branch name (e.g., release-1.0.0, release-latest)'
+    required: false
+    default: ''
+  release_number:
+    description: 'Release number (e.g., 1.0.0)'
+    required: false
+    default: ''
+  windsor_test_config:
+    description: 'Windsor test configuration file to use'
+    required: false
+    default: 'ci-integration-tests.yaml'
+  windsor_up:
+    description: 'Whether to run Windsor Up before tests (true/false)'
+    required: false
+    type: boolean
+    default: false
+  token:
+    description: 'GitHub token with repository dispatch permissions'
+    required: true
+  wait_for_completion:
+    description: 'Whether to wait for the workflow to complete'
+    required: false
+    type: boolean
+    default: true
+  max_wait_time:
+    description: 'Maximum time to wait for workflow completion in seconds'
+    required: false
+    default: '600'
+
+outputs:
+  workflow_id:
+    description: 'ID of the dispatched workflow'
+    value: ${{ steps.dispatch.outputs.workflow_id }}
+  status:
+    description: 'Final status of the workflow (success, failure, or timeout)'
+    value: ${{ steps.monitor.outputs.status }}
+
+permissions:
+  contents: read
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Dispatch Integration Tests Workflow
+      id: dispatch
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          try {
+            console.log('Dispatching integration tests workflow');
+            
+            // Log input parameters
+            console.log('Parameters:', {
+              repo_owner: '${{ inputs.repo_owner }}',
+              repo_name: '${{ inputs.repo_name }}',
+              target_repo_owner: '${{ inputs.target_repo_owner }}',
+              target_repo_name: '${{ inputs.target_repo_name }}',
+              version: '${{ inputs.version }}',
+              release_branch: '${{ inputs.release_branch }}',
+              release_number: '${{ inputs.release_number }}',
+              windsor_test_config: '${{ inputs.windsor_test_config }}',
+              windsor_up: '${{ inputs.windsor_up }}'
+            });
+            
+            // Dispatch the repository event
+            const response = await github.rest.repos.createDispatchEvent({
+              owner: '${{ inputs.repo_owner }}',
+              repo: '${{ inputs.repo_name }}',
+              event_type: 'dispatch-integration-tests',
+              client_payload: {
+                target_repo_owner: '${{ inputs.target_repo_owner }}',
+                target_repo_name: '${{ inputs.target_repo_name }}',
+                version: '${{ inputs.version }}',
+                release_branch: '${{ inputs.release_branch }}',
+                release_number: '${{ inputs.release_number }}',
+                windsor_test_config: '${{ inputs.windsor_test_config }}',
+                windsor_up: '${{ inputs.windsor_up }}'
+              }
+            });
+            
+            console.log('Integration tests workflow dispatched successfully');
+            core.setOutput('workflow_id', 'dispatched');
+          } catch (error) {
+            console.error('Error dispatching workflow:', error.message);
+            core.setFailed(`Failed to dispatch integration tests: ${error.message}`);
+          }
+
+    - name: Monitor Workflow Execution
+      id: monitor
+      if: inputs.wait_for_completion == 'true'
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          try {
+            if ('${{ inputs.wait_for_completion }}' !== 'true') {
+              console.log('Skipping workflow monitoring (wait_for_completion is not true)');
+              core.setOutput('status', 'unknown');
+              return;
+            }
+            
+            const MAX_TIME = parseInt('${{ inputs.max_wait_time }}', 10); 
+            const INTERVAL = 10; // Check interval in seconds
+            const targetOwner = '${{ inputs.repo_owner }}';
+            const targetRepo = '${{ inputs.repo_name }}';
+            const workflowName = 'Dispatch Integration Tests';
+            
+            console.log(`Will monitor workflow for up to ${MAX_TIME} seconds`);
+            
+            // Wait a bit before checking for the workflow run (to allow it to start)
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            
+            // Get the workflow ID
+            console.log('Finding workflow ID by name');
+            let workflowId;
+            try {
+              const workflows = await github.rest.actions.listRepoWorkflows({
+                owner: targetOwner,
+                repo: targetRepo
+              });
+              
+              const workflow = workflows.data.workflows.find(wf => 
+                wf.name === workflowName || 
+                wf.name === 'dispatch-integration-tests' ||
+                wf.path.includes('dispatch-integration-tests.yaml')
+              );
+              
+              if (!workflow) {
+                console.log('Available workflows:');
+                workflows.data.workflows.forEach(wf => {
+                  console.log(`- ${wf.name} (${wf.path})`);
+                });
+                throw new Error(`Workflow with name "${workflowName}" not found.`);
+              }
+              
+              workflowId = workflow.id;
+              console.log(`Found workflow ID: ${workflowId}`);
+            } catch (error) {
+              console.error(`Error finding workflow: ${error.message}`);
+              core.setOutput('status', 'not_found');
+              return;
+            }
+            
+            // Function to get the latest run
+            async function getLatestRunId() {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: targetOwner,
+                repo: targetRepo,
+                workflow_id: workflowId,
+                per_page: 1
+              });
+              
+              if (runs.data.workflow_runs.length === 0) {
+                console.log('No workflow runs found. The dispatch might be delayed.');
+                return null;
+              }
+              
+              return runs.data.workflow_runs[0];
+            }
+            
+            // Function to check status
+            async function checkWorkflowStatus(runId) {
+              const run = await github.rest.actions.getWorkflowRun({
+                owner: targetOwner,
+                repo: targetRepo,
+                run_id: runId
+              });
+              return run.data;
+            }
+            
+            // Wait for the workflow to start and complete
+            const startTime = Date.now();
+            let run = null;
+            let runId = null;
+            
+            // Wait until we find a run or time out
+            while (!run && (Date.now() - startTime) < MAX_TIME * 1000) {
+              console.log('Looking for workflow run...');
+              run = await getLatestRunId();
+              if (run) {
+                runId = run.id;
+                console.log(`Found workflow run ID: ${runId}, status: ${run.status}`);
+                break;
+              }
+              
+              await new Promise(resolve => setTimeout(resolve, INTERVAL * 1000));
+            }
+            
+            if (!run) {
+              console.log(`Timeout: No workflow run found after ${MAX_TIME} seconds.`);
+              core.setOutput('status', 'timeout');
+              return;
+            }
+            
+            // Wait for completion
+            while ((Date.now() - startTime) < MAX_TIME * 1000) {
+              const runData = await checkWorkflowStatus(runId);
+              console.log(`Workflow status: ${runData.status}, conclusion: ${runData.conclusion || 'pending'}`);
+              
+              if (runData.status === 'completed') {
+                console.log(`Workflow completed with conclusion: ${runData.conclusion}`);
+                core.setOutput('status', runData.conclusion);
+                
+                if (runData.conclusion !== 'success') {
+                  // Don't fail the workflow, just report the status
+                  console.log(`Integration tests completed with status: ${runData.conclusion}`);
+                }
+                
+                return;
+              }
+              
+              await new Promise(resolve => setTimeout(resolve, INTERVAL * 1000));
+            }
+            
+            console.log(`Timeout: Workflow did not complete within ${MAX_TIME} seconds.`);
+            core.setOutput('status', 'timeout');
+          } catch (error) {
+            console.error(`Error monitoring workflow: ${error.message}`);
+            core.setOutput('status', 'error');
+          }
+
+    - name: Report Summary
+      run: |
+        echo "----------------------------------------"
+        echo "Integration Tests Dispatch Summary"
+        echo "----------------------------------------"
+        echo "Repository: ${{ inputs.repo_owner }}/${{ inputs.repo_name }}"
+        echo "Target: ${{ inputs.target_repo_owner }}/${{ inputs.target_repo_name }}"
+        echo "Workflow ID: ${{ steps.dispatch.outputs.workflow_id || 'Unknown' }}"
+        
+        if [[ "${{ inputs.wait_for_completion }}" == "true" ]]; then
+          echo "Final Status: ${{ steps.monitor.outputs.status || 'Unknown' }}"
+          
+          if [[ "${{ steps.monitor.outputs.status }}" == "success" ]]; then
+            echo "✅ Integration tests completed successfully"
+          elif [[ "${{ steps.monitor.outputs.status }}" == "failure" ]]; then
+            echo "❌ Integration tests failed"
+          elif [[ "${{ steps.monitor.outputs.status }}" == "timeout" ]]; then
+            echo "⚠️ Integration tests timed out after ${{ inputs.max_wait_time }} seconds"
+          else
+            echo "ℹ️ Status: ${{ steps.monitor.outputs.status || 'Unknown' }}"
+          fi
+        else
+          echo "Monitoring skipped (wait_for_completion: false)"
+        fi
+        echo "----------------------------------------"
+      shell: bash 
