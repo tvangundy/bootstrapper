@@ -118,7 +118,7 @@ jobs:
         with:
           windsor_up: ${{ inputs.windsor_up }}
           version: ${{ needs.integration-test-prep.outputs.VERSION }}
-          release: ${{ needs.integration-test-prep.outputs.RELEASE_BRANCH }}
+          release_branch: ${{ needs.integration-test-prep.outputs.RELEASE_BRANCH }}
           release_number: ${{ needs.integration-test-prep.outputs.RELEASE_NUMBER }}
           windsor_test_config: ${{ needs.integration-test-prep.outputs.WINDSOR_TEST_CONFIG_PATH }}
           docker_host: ${{ matrix.runner.docker_host }}
