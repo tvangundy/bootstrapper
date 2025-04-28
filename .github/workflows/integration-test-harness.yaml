@@ -34,11 +34,11 @@ permissions:
 jobs:
   integration-test-prep:
     runs-on: ubuntu-latest
-    outputs:
-      runner_list: ${{ steps.set-job-outputs.outputs.runner_list }}
-      latest_release_branch: ${{ steps.set-job-outputs.outputs.latest_release_branch }}
-      version: ${{ steps.set-job-outputs.outputs.version }}
-      windsor_test_config: ${{ steps.set-job-outputs.outputs.windsor_test_config }}
+    # outputs:
+    #   runner_list: ${{ steps.set-job-outputs.outputs.runner_list }}
+    #   latest_release_branch: ${{ steps.set-job-outputs.outputs.latest_release_branch }}
+    #   version: ${{ steps.set-job-outputs.outputs.version }}
+    #   windsor_test_config: ${{ steps.set-job-outputs.outputs.windsor_test_config }}
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

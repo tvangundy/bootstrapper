@@ -53,23 +53,7 @@ runs:
           console.log(`Detected platform: ${platform}`);
           core.setOutput('platform', platform);
           core.exportVariable('PLATFORM_OS', platform);
-
-    - name: Get Latest Release Branch
-      uses: ./.github/actions/get-latest-release-branch
-      with:
-        version: ${{ inputs.version }}
-        release: ${{ inputs.release }}
-        repo_owner: ${{ inputs.target_repo_owner }}
-        repo_name: ${{ inputs.target_repo_name }}
-        token: ${{ inputs.token }}    
-
-    - name: Latest Release Branch Environment Variables
-      run: |
-        echo "version=${{ env.version }}"
-        echo "release=${{ env.release }}"
-        echo "release_number=${{ env.release_number }}"
-      shell: bash
-
+          
     - name: Set Windsor Test Config
       uses: actions/github-script@v7
       with:
