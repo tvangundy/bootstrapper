@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       windsor_up:
-        description: 'Whether to run Windsor Up before tests (true/false)'
+        description: 'Windsor Up'
         required: false
         type: boolean
         default: false
