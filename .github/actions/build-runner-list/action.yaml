@@ -11,9 +11,9 @@ outputs:
   RUNNER_LIST:
     description: 'JSON string containing the list of runners extracted from config'
     value: ${{ steps.build_runners.outputs.RUNNER_LIST }}
-  PLATFORM_OS:
+  PLATFORM_OS_LIST:
     description: 'JSON string containing the list of unique platform OS values from runners'
-    value: ${{ steps.build_runners.outputs.PLATFORM_OS }}
+    value: ${{ steps.build_runners.outputs.PLATFORM_OS_LIST }}
 
 permissions:
   contents: read
@@ -83,11 +83,11 @@ runs:
 
             // Set outputs using the proper GitHub Actions method - using UPPERCASE names to match
             core.setOutput('RUNNER_LIST', runnerListJson);
-            core.setOutput('PLATFORM_OS', platformOsJson);
+            core.setOutput('PLATFORM_OS_LIST', platformOsJson);
             
             // Also set as environment variables
             core.exportVariable('RUNNER_LIST', runnerListJson);
-            core.exportVariable('PLATFORM_OS', platformOsJson);
+            core.exportVariable('PLATFORM_OS_LIST', platformOsJson);
             
             console.log(`Successfully extracted ${runnerList.length} runners from config`);
             console.log(`Unique OS platforms: ${platformOsJson}`);

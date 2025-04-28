@@ -31,6 +31,10 @@ inputs:
     description: 'Platform OS (e.g., linux, windows)'
     required: false
     default: 'linux'
+  token:
+    description: 'GitHub token'
+    required: false
+    default: ''
 
 outputs:
   test_status:
