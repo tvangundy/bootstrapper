@@ -34,16 +34,31 @@ permissions:
 jobs:
   integration-test-prep:
     runs-on: ubuntu-latest
-    # outputs:
-    #   runner_list: ${{ steps.set-job-outputs.outputs.runner_list }}
-    #   latest_release_branch: ${{ steps.set-job-outputs.outputs.latest_release_branch }}
-    #   version: ${{ steps.set-job-outputs.outputs.version }}
-    #   windsor_test_config: ${{ steps.set-job-outputs.outputs.windsor_test_config }}
+    outputs:
+      RUNNER_LIST: ${{ steps.test_prep.outputs.RUNNER_LIST }}
+      PLATFORM_OS: ${{ steps.test_prep.outputs.PLATFORM_OS }}
+      WINDSOR_TEST_CONFIG_PATH: ${{ steps.test_prep.outputs.WINDSOR_TEST_CONFIG_PATH }}
+      VERSION: ${{ env.VERSION }}
+      RELEASE_BRANCH: ${{ env.RELEASE_BRANCH }}
+      RELEASE_NUMBER: ${{ env.RELEASE_NUMBER }}
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Print Out the inputs
+        run: |
+          echo "Integration Test Input Variables"
+          echo "----------------------------------------"
+          echo "Repo Owner: ${{ inputs.repo_owner }}"
+          echo "Repo Name: ${{ inputs.repo_name }}"
+          echo "Release: ${{ inputs.release }}"
+          echo "Version: ${{ inputs.version }}"
+          echo "Windsor Up: ${{ inputs.windsor_up }}"
+          echo "Windsor Test Config: ${{ inputs.windsor_test_config }}"
+          echo "----------------------------------------"
           
       - name: Run Integration Test Prep Action
+        id: test_prep
         uses: ./.github/actions/integration-test-prep
         with:
           repo_owner: ${{ inputs.repo_owner }}
@@ -53,20 +68,21 @@ jobs:
           windsor_test_config: ${{ inputs.windsor_test_config }}
           token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}    
 
-      - name: Set job outputs
-        id: set-job-outputs
+      - name: Print Integration Test Prep Results
         run: |
-          runner_list=$(echo '${{ env.runner_list }}' | jq -c .)
-
-          echo "::set-output name=runner_list::$runner_list"
-          echo "::set-output name=latest_release_branch::${{ env.latest_release_branch }}"
-          echo "::set-output name=version::${{ env.version }}"
-          echo "::set-output name=windsor_test_config::${{ env.windsor_test_config }}"
-
-          echo "version=${{ env.version }}"
-          echo "release=${{ env.latest_release_branch }}"
-          echo "runner_list=${{ env.runner_list }}"
-          echo "windsor_test_config=${{ env.windsor_test_config }}"
+          echo "Integration Test Prep Results"
+          echo "----------------------------------------"
+          echo "Environment Variables:"
+          echo "RUNNER_LIST: ${{ env.RUNNER_LIST }}"
+          echo "PLATFORM_OS: ${{ env.PLATFORM_OS }}"
+          echo "WINDSOR_TEST_CONFIG_PATH: ${{ env.WINDSOR_TEST_CONFIG_PATH }}"
+          echo "----------------------------------------"
+          echo "Action Outputs:"
+          echo "RUNNER_LIST: ${{ steps.test_prep.outputs.RUNNER_LIST }}"
+          echo "PLATFORM_OS: ${{ steps.test_prep.outputs.PLATFORM_OS }}"
+          echo "WINDSOR_TEST_CONFIG_PATH: ${{ steps.test_prep.outputs.WINDSOR_TEST_CONFIG_PATH }}"
+          echo "----------------------------------------"
+        shell: bash
 
   integration-test:
     needs: 
@@ -74,7 +90,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: ${{ fromJson(needs.integration-test-prep.outputs.runner_list) }}
+        runner: ${{ fromJson(needs.integration-test-prep.outputs.RUNNER_LIST) }}
             
     runs-on: ${{ matrix.runner.os }}
       
@@ -82,12 +98,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
 
+      - name: Print Job Input Values
+        run: |
+          echo "----------------------------------------"
+          echo "Integration Test Inputs from Previous Job"
+          echo "----------------------------------------"
+          echo "Platform OS: ${{ needs.integration-test-prep.outputs.PLATFORM_OS }}"
+          echo "Windsor Test Config: ${{ needs.integration-test-prep.outputs.WINDSOR_TEST_CONFIG_PATH }}"
+          echo "Version: ${{ needs.integration-test-prep.outputs.VERSION }}"
+          echo "Release: ${{ needs.integration-test-prep.outputs.RELEASE_BRANCH }}"
+          echo "Runner OS: ${{ matrix.runner.os }}"
+          echo "Runner Label: ${{ matrix.runner.label }}"
+          echo "Docker Host: ${{ matrix.runner.docker_host }}"
+          echo "----------------------------------------"
+        shell: bash
+
       - name: Run Integration Test
         uses: ./.github/actions/integration-test
         with:
           windsor_up: ${{ inputs.windsor_up }}
-          version: ${{ needs.integration-test-prep.outputs.version }}
-          release: ${{ needs.integration-test-prep.outputs.latest_release_branch }}
-          windsor_test_config: ${{ needs.integration-test-prep.outputs.windsor_test_config }}
+          version: ${{ needs.integration-test-prep.outputs.VERSION }}
+          release: ${{ needs.integration-test-prep.outputs.RELEASE_BRANCH }}
+          release_number: ${{ needs.integration-test-prep.outputs.RELEASE_NUMBER }}
+          windsor_test_config: ${{ needs.integration-test-prep.outputs.WINDSOR_TEST_CONFIG_PATH }}
           docker_host: ${{ matrix.runner.docker_host }}
-          token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}
+          platform_os: ${{ needs.integration-test-prep.outputs.PLATFORM_OS }}
