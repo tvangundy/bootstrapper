@@ -74,4 +74,8 @@ runs:
       uses: ./.github/actions/build-runner-list
       with:
         config_file_path: '${{ env.windsor_test_config }}'
-        
+
+    - name: Print Runner List
+      run: |
+        echo "Runner List: ${{ env.RUNNER_LIST }}"
+        echo "Platform: ${{ env.PLATFORM_OS }}"

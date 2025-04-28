@@ -72,9 +72,9 @@ runs:
             core.exportVariable('RUNNER_LIST', runnerListJson);
             console.log(`Successfully extracted ${runnerList.length} runners from config`);
             
-            // Optional: Log a sample of the runners (first 2)
+            // Log the runners (first 2)
             if (runnerList.length > 0) {
-              console.log(`Sample runners: ${JSON.stringify(runnerList.slice(0, 2))}`);
+              console.log(`${JSON.stringify(runnerList.slice(0, 2))}`);
             }
           } catch (error) {
             core.setFailed(`Error building runner list: ${error.message}`);
