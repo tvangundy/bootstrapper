@@ -19,7 +19,7 @@ on:
       release_number:
         description: 'Release Number (1.0.0)'
         required: false
-        default: '1.0.0'
+        default: ''
       version:
         description: 'Version (e.g., v1.0.0, 1.0.0)'
         required: false
@@ -112,7 +112,8 @@ jobs:
           echo "Platform OS: ${{ needs.integration-test-prep.outputs.PLATFORM_OS }}"
           echo "Windsor Test Config: ${{ needs.integration-test-prep.outputs.WINDSOR_TEST_CONFIG_PATH }}"
           echo "Version: ${{ needs.integration-test-prep.outputs.VERSION }}"
-          echo "Release: ${{ needs.integration-test-prep.outputs.RELEASE_BRANCH }}"
+          echo "Release Branch: ${{ needs.integration-test-prep.outputs.RELEASE_BRANCH }}"
+          echo "Release Number: ${{ needs.integration-test-prep.outputs.RELEASE_NUMBER }}"
           echo "Runner OS: ${{ matrix.runner.os }}"
           echo "Runner Label: ${{ matrix.runner.label }}"
           echo "Docker Host: ${{ matrix.runner.docker_host }}"
