@@ -25,8 +25,8 @@ jobs:
         run: |
           echo "Integration Test Input Variables"
           echo "----------------------------------------"
-          echo "Repo Owner: ${{ github.event.client_payload.repo_owner }}"
-          echo "Repo Name: ${{ github.event.client_payload.repo_name }}"
+          echo "Repo Owner: ${{ github.event.client_payload.target_repo_owner }}"
+          echo "Repo Name: ${{ github.event.client_payload.target_repo_name }}"
           echo "Release Branch: ${{ github.event.client_payload.release_branch }}"
           echo "Release Number: ${{ github.event.client_payload.release_number }}"
           echo "Version: ${{ github.event.client_payload.version }}"
@@ -39,7 +39,7 @@ jobs:
         uses: ./.github/actions/integration-test-prep
         with:
           repo_owner: ${{ github.event.client_payload.target_repo_owner }}
-          repo_name: ${{ github.event.client_payload.repo_name }}
+          repo_name: ${{ github.event.client_payload.target_repo_name }}
           version: ${{ github.event.client_payload.version }}
           release_branch: ${{ github.event.client_payload.release_branch }}
           release_number: ${{ github.event.client_payload.release_number }}
