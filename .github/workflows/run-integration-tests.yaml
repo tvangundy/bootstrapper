@@ -24,7 +24,7 @@ on:
         required: false
         default: 'cli'
       windsor_test_config:
-        description: 'Windsor test configuration file to use (without path)'
+        description: 'Windsor test configuration file'
         required: false
         default: 'ci-self-hosted-tests.yaml'
         

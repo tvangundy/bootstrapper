@@ -3,7 +3,7 @@ description: 'Extracts runner information from Windsor test configuration file a
 
 inputs:
   config_file_path:
-    description: 'Path to Windsor test configuration file (relative to workspace root)'
+    description: 'Windsor test configuration file (relative to workspace root)'
     required: false
     default: 'tests/configs/ci-integration-tests.yaml'
 

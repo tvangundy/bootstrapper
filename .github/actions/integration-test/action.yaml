@@ -20,7 +20,7 @@ inputs:
     required: false
     default: ''
   windsor_test_config:
-    description: 'Path to Windsor test configuration file'
+    description: 'Windsor test configuration file'
     required: false
     default: 'tests/configs/ci-integration-tests.yaml'
   docker_host:

@@ -27,7 +27,7 @@ inputs:
     required: false
     default: ''
   windsor_test_config:
-    description: 'Windsor test configuration file to use'
+    description: 'Windsor test configuration file'
     required: false
     default: 'ci-integration-tests.yaml'
   windsor_up:
