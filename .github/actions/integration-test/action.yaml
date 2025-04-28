@@ -27,7 +27,7 @@ inputs:
     description: 'Docker host address for remote Docker operations'
     required: false
     default: ''
-  platform_os:
+  platform:
     description: 'Platform OS (e.g., linux, windows)'
     required: false
     default: 'linux'
@@ -58,7 +58,7 @@ runs:
         echo "Release Number: ${{ inputs.release_number }}"
         echo "Windsor Test Config: ${{ inputs.windsor_test_config }}"
         echo "Docker Host: ${{ inputs.docker_host }}"
-        echo "Platform: ${{ inputs.platform_os }}"
+        echo "Platform: ${{ inputs.platform }}"
         echo "----------------------------------------"
       shell: bash
 
@@ -67,20 +67,20 @@ runs:
     ### 
     ### 
     - name: Fix permissions for Linux runners
-      if: always() && steps.detect_platform.outputs.platform == 'linux'
+      if: always() && inputs.platform == 'linux'
       run: |
         sudo chown -R $USER:$USER $GITHUB_WORKSPACE
         sudo chmod -R 755 $GITHUB_WORKSPACE
       shell: bash
       
     - name: Install Aqua on Linux and macOS
-      if: steps.detect_platform.outputs.platform == 'linux' || steps.detect_platform.outputs.platform == 'darwin'
+      if: inputs.platform == 'linux' || inputs.platform == 'darwin'
       uses: aquaproj/aqua-installer@e2d0136abcf70b7a2f6f505720640750557c4b33 # v3.1.1
       with:
         aqua_version: v2.43.1
 
     - name: Install Aqua on Windows
-      if: steps.detect_platform.outputs.platform == 'win32'
+      if: inputs.platform == 'win32'
       run: |
         $url = "https://github.com/aquaproj/aqua/releases/download/v2.48.2-0/aqua_windows_amd64.zip"
         $output = "aqua_windows_amd64.zip"
@@ -301,7 +301,7 @@ runs:
           }
 
     - name: Run Tests
-      if: steps.detect_platform.outputs.platform == 'linux' || steps.detect_platform.outputs.platform == 'darwin'
+      if: inputs.platform == 'linux' || inputs.platform == 'darwin'
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
       with:
         script: |
@@ -444,7 +444,7 @@ runs:
           }
 
     - name: Run Tests on Windows
-      if: steps.detect_platform.outputs.platform == 'win32'
+      if: inputs.platform == 'win32'
       run: |
         $testConfig = '${{ inputs.windsor_test_config }}'
         $testConfigPath = if ([System.IO.Path]::IsPathRooted($testConfig)) { $testConfig } else { Join-Path $env:GITHUB_WORKSPACE $testConfig }
@@ -550,7 +550,7 @@ runs:
           }
 
     - name: Docker Clean
-      if: always() && (steps.detect_platform.outputs.platform == 'linux' || steps.detect_platform.outputs.platform == 'darwin')
+      if: always() && (inputs.platform == 'linux' || inputs.platform == 'darwin')
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
       with:
         script: |
@@ -607,7 +607,7 @@ runs:
           }
       
     - name: Docker Clean on Windows
-      if: always() && steps.detect_platform.outputs.platform == 'win32'
+      if: always() && inputs.platform == 'win32'
       run: |
         $windsorUpInput = [bool]::Parse("${{ inputs.windsor_up }}")
         if (-not $windsorUpInput) {
@@ -632,7 +632,7 @@ runs:
       shell: powershell
   
     - name: Fix permissions for Linux runners
-      if: always() && steps.detect_platform.outputs.platform == 'linux'
+      if: always() && inputs.platform == 'linux'
       run: |
         sudo chown -R $USER:$USER $GITHUB_WORKSPACE
         sudo chmod -R 755 $GITHUB_WORKSPACE
@@ -781,7 +781,7 @@ runs:
               releaseNumber: '${{ inputs.release_number }}',
               windsorTestConfig: '${{ inputs.windsor_test_config }}',
               dockerHost: '${{ inputs.docker_host }}',
-              platformOs: '${{ inputs.platform_os }}'
+              platform: '${{ inputs.platform }}'
             });
             
             // In a real implementation, we would determine success/failure based on test results
@@ -803,7 +803,7 @@ runs:
         echo "Integration Test Results"
         echo "----------------------------------------"
         echo "Status: ${{ steps.test_results.outputs.status }}"
-        echo "Platform: ${{ inputs.platform_os }}"
+        echo "Platform: ${{ inputs.platform }}"
         echo "Windsor Up Used: ${{ inputs.windsor_up }}"
         echo "----------------------------------------"
       shell: bash

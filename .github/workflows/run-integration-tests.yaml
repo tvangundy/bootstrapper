@@ -135,4 +135,4 @@ jobs:
           release_number: ${{ needs.integration-test-prep.outputs.RELEASE_NUMBER }}
           windsor_test_config: ${{ needs.integration-test-prep.outputs.WINDSOR_TEST_CONFIG_PATH }}
           docker_host: ${{ matrix.runner.docker_host }}
-          platform_os: ${{ needs.integration-test-prep.outputs.PLATFORM_OS }}
+          platform: ${{ needs.integration-test-prep.outputs.PLATFORM_OS }}
