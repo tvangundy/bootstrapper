@@ -8,12 +8,12 @@ inputs:
     default: 'tests/configs/ci-integration-tests.yaml'
 
 outputs:
-  runner_list:
+  RUNNER_LIST:
     description: 'JSON string containing the list of runners extracted from config'
-    value: ${{ steps.build_runners.outputs.runner_list }}
-  platform_os:
+    value: ${{ steps.build_runners.outputs.RUNNER_LIST }}
+  PLATFORM_OS:
     description: 'JSON string containing the list of unique platform OS values from runners'
-    value: ${{ steps.build_runners.outputs.platform_os }}
+    value: ${{ steps.build_runners.outputs.PLATFORM_OS }}
 
 permissions:
   contents: read
@@ -81,21 +81,16 @@ runs:
             const runnerListJson = JSON.stringify(runnerList);
             const platformOsJson = JSON.stringify(uniqueOsValues);
 
-            // Set outputs using the proper GitHub Actions method
-            core.setOutput('runner_list', runnerListJson);
-            core.setOutput('platform_os', platformOsJson);
+            // Set outputs using the proper GitHub Actions method - using UPPERCASE names to match
+            core.setOutput('RUNNER_LIST', runnerListJson);
+            core.setOutput('PLATFORM_OS', platformOsJson);
             
-            // Also set as environment variables for backward compatibility
+            // Also set as environment variables
             core.exportVariable('RUNNER_LIST', runnerListJson);
             core.exportVariable('PLATFORM_OS', platformOsJson);
             
             console.log(`Successfully extracted ${runnerList.length} runners from config`);
             console.log(`Unique OS platforms: ${platformOsJson}`);
-            
-            // Log sample runners
-            if (runnerList.length > 0) {
-              console.log(`Sample runners: ${JSON.stringify(runnerList.slice(0, 2))}`);
-            }
           } catch (error) {
             core.setFailed(`Error building runner list: ${error.message}`);
             throw error;

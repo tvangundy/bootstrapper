@@ -28,6 +28,14 @@ inputs:
     description: 'GitHub token'
     required: true
 
+outputs:
+  PLATFORM_OS:
+    description: 'Operating system platform detected for the current environment'
+    value: ${{ steps.platform_detection.outputs.PLATFORM_OS }}
+  RUNNER_LIST:
+    description: 'JSON string containing the list of runners from the Windsor test config'
+    value: ${{ steps.runner_list.outputs.RUNNER_LIST }}
+
 permissions:
   contents: read
 
@@ -39,15 +47,18 @@ runs:
       uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
 
     - name: Determine Platform Type
+      id: platform_detection
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
       with:
         script: |
           const os = require('os');
           const platform = os.platform();
           core.exportVariable('PLATFORM_OS', platform);
+          core.setOutput('PLATFORM_OS', platform);
           console.log(`Detected platform: ${platform}`);
 
     - name: Set Windsor Test Config
+      id: config_path
       uses: actions/github-script@v7
       with:
         script: |
@@ -68,15 +79,17 @@ runs:
           }
           console.log(`Outgoing: Windsor Test Config: ${windsorTestConfigValue}`);
           core.exportVariable('windsor_test_config', windsorTestConfigValue);
+          core.setOutput('windsor_test_config', windsorTestConfigValue);
           console.log(`Windsor Test Config: ${windsorTestConfigValue}`);
 
     - name: Build Runner List
+      id: runner_list
       uses: ./.github/actions/build-runner-list
       with:
         config_file_path: '${{ env.windsor_test_config }}'
 
-    - name: Print Runner List
+    - name: Print Outputs
       run: |
-        echo "Runner List: ${{ env.RUNNER_LIST }}"
-        echo "Platform: ${{ env.PLATFORM_OS }}"
+        echo "RUNNER_LIST Output: ${{ steps.runner_list.outputs.RUNNER_LIST }}"
+        echo "Detected PLATFORM_OS: ${{ steps.platform_detection.outputs.PLATFORM_OS }}"
       shell: bash
