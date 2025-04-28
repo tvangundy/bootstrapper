@@ -8,25 +8,25 @@ on:
         required: false
         type: boolean
         default: false
-      release:
-        description: 'Release branch name (e.g., release-latest, release-1.0.0, 1.0.0)'
-        required: false
-        default: 'release-latest'
-      version:
-        description: 'Version in semantic format (e.g., v1.0.0)'
-        required: false        
-      repo_owner:
-        description: 'Repository owner for the target repository to test'
-        required: false
-        default: 'windsorcli'
-      repo_name:
-        description: 'Repository name for the target repository to test'
-        required: false
-        default: 'cli'
       windsor_test_config:
         description: 'Windsor test configuration file'
         required: false
         default: 'ci-self-hosted-tests.yaml'
+      release:
+        description: 'Release Branch (release-1.0.0 or 1.0.0)'
+        required: false
+        default: 'release-latest'
+      version:
+        description: 'Version (e.g., v1.0.0, 1.0.0)'
+        required: false
+      target_repo_owner:
+        description: 'Test Target Repository Owner'
+        required: true
+        default: 'windsorcli'
+      target_repo_name:
+        description: 'Test Target Repository Name'
+        required: true
+        default: 'cli'
         
 permissions:
   contents: read
