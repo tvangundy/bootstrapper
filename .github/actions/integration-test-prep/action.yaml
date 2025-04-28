@@ -79,3 +79,4 @@ runs:
       run: |
         echo "Runner List: ${{ env.RUNNER_LIST }}"
         echo "Platform: ${{ env.PLATFORM_OS }}"
+      shell: bash
