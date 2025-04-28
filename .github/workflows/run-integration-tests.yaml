@@ -1,4 +1,4 @@
-name: 'Integration Test Harness'
+name: 'Run Integration Tests'
 
 on:
   workflow_dispatch:
