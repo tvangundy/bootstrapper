@@ -49,7 +49,6 @@ runs:
 
     - name: Print Test Parameters
       run: |
-        echo "----------------------------------------"
         echo "Integration Test Parameters"
         echo "----------------------------------------"
         echo "Windsor Up: ${{ inputs.windsor_up }}"
@@ -66,12 +65,12 @@ runs:
     ### Actual Integration Test
     ### 
     ### 
-    - name: Fix permissions for Linux runners
-      if: always() && inputs.platform == 'linux'
-      run: |
-        sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-        sudo chmod -R 755 $GITHUB_WORKSPACE
-      shell: bash
+    # - name: Fix permissions for Linux runners
+    #   if: always() && inputs.platform == 'linux'
+    #   run: |
+    #     sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+    #     sudo chmod -R 755 $GITHUB_WORKSPACE
+    #   shell: bash
       
     - name: Install Aqua on Linux and macOS
       if: inputs.platform == 'linux' || inputs.platform == 'darwin'
