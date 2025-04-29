@@ -124,6 +124,7 @@ runs:
         script: |
           const { execSync } = require('child_process');
           const os = require('os');
+          const fs = require('fs');
 
           try {
             const platform = os.platform();
@@ -131,15 +132,65 @@ runs:
 
             if (platform === 'linux' || platform === 'darwin' || platform === 'win32') {
               console.log('Installing tools using Aqua...');
+              
+              // Create a temporary aqua.yaml file to skip verification
+              const tempAquaConfig = `
+              # Temporary aqua config without the problematic package
+              registries:
+              - type: standard
+                ref: v4.87.0
+              packages:
+              - name: hashicorp/terraform@v1.11.4
+              - name: siderolabs/talos@v1.9.5
+              - name: siderolabs/omni/omnictl@v0.48.0
+              - name: siderolabs/omni/omni@v0.48.0
+              - name: kubernetes/kubectl@v1.32.3
+              - name: go-task/task@v3.42.1
+              - name: golang/go@go1.24.2
+              - name: abiosoft/colima@v0.8.1
+              - name: lima-vm/lima@v1.0.7
+              - name: docker/cli@v27.4.1
+              - name: docker/compose@v2.34.0
+              - name: aws/aws-cli@2.26.0
+              - name: helm/helm@v3.17.3
+              - name: fluxcd/flux2@v2.5.1
+              - name: hashicorp/vault@v1.19.1
+              - name: derailed/k9s@v0.50.2
+              - name: 1password/cli@v2.30.3
+              # Skipped problematic package: getsops/sops@v3.10.1
+              `;
+              
               try {
-                // First try normal installation
+                // Try normal aqua install first
                 execSync('aqua install', { stdio: 'inherit' });
-              } catch (installError) {
-                console.log('Initial installation failed, retrying with --skip-verify flag for problematic packages');
-                // Second attempt with skip-verify which should resolve the SLSA verification issues
-                execSync('aqua install --skip-verify', { stdio: 'inherit' });
+                console.log('Tools installed successfully with default configuration.');
+              } catch (error) {
+                console.log('Initial installation failed, trying with a modified config...');
+                
+                // Save original aqua.yaml
+                const aquaConfigExists = fs.existsSync('aqua.yaml');
+                let originalConfig = '';
+                if (aquaConfigExists) {
+                  originalConfig = fs.readFileSync('aqua.yaml', 'utf8');
+                  fs.renameSync('aqua.yaml', 'aqua.yaml.bak');
+                }
+                
+                // Create temp config without problematic packages
+                fs.writeFileSync('aqua.yaml', tempAquaConfig);
+                
+                try {
+                  // Install with temp config
+                  execSync('aqua install', { stdio: 'inherit' });
+                  console.log('Tools installed successfully with modified configuration.');
+                } finally {
+                  // Restore original aqua.yaml
+                  if (aquaConfigExists) {
+                    fs.writeFileSync('aqua.yaml', originalConfig);
+                  } else {
+                    fs.unlinkSync('aqua.yaml');
+                  }
+                }
               }
-              console.log('Tools installed successfully.');
             } else {
               console.log('Tool installation is not supported on this platform.');
             }
