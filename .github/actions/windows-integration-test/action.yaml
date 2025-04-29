@@ -27,10 +27,6 @@ inputs:
     description: 'Docker host address for remote Docker operations'
     required: false
     default: ''
-  platform:
-    description: 'Platform OS (e.g., linux, windows)'
-    required: false
-    default: 'win32'
 
 outputs:
   test_status:
@@ -44,36 +40,22 @@ runs:
   using: 'composite'
 
   steps:
-    - name: Set up test environment
-      run: |
-        Write-Host "Setting up Windows test environment"
-        $ErrorActionPreference = "Continue"
-        
-        # Create test directories
-        New-Item -Path "tests\shell" -ItemType Directory -Force | Out-Null
-        
-        # Create Windows-specific test files
-        $windowsTestFile = "tests\shell\windows-test.bat"
-        $sampleTestFile = "tests\shell\sample-test-win.bat"
-        
-        # Create test file content with individual lines
-        Set-Content -Path $windowsTestFile -Value "@echo off"
-        Add-Content -Path $windowsTestFile -Value "echo Running Windsor Windows Test"
-        Add-Content -Path $windowsTestFile -Value "echo Testing on Windows version:"
-        Add-Content -Path $windowsTestFile -Value "ver"
-        Add-Content -Path $windowsTestFile -Value "echo Test completed successfully!"
-        Add-Content -Path $windowsTestFile -Value "exit /b 0"
-        
-        # Create second test file
-        Set-Content -Path $sampleTestFile -Value "@echo off"
-        Add-Content -Path $sampleTestFile -Value "echo Hello, World from Windows!"
-        Add-Content -Path $sampleTestFile -Value "echo Testing Windsor on Windows"
-        Add-Content -Path $sampleTestFile -Value "exit /b 0"
-        
-        Write-Host "Created test files:"
-        Get-ChildItem -Path tests\shell -Recurse
-      shell: powershell
+    - name: Checkout code
+      uses: actions/checkout@v4
 
+    - name: Print Test Parameters
+      run: |
+        Write-Host "Integration Test Parameters"
+        Write-Host "----------------------------------------"
+        Write-Host "Windsor Up: ${{ inputs.windsor_up }}"
+        Write-Host "Version: ${{ inputs.version }}"
+        Write-Host "Release Branch: ${{ inputs.release_branch }}"
+        Write-Host "Release Number: ${{ inputs.release_number }}"
+        Write-Host "Windsor Test Config: ${{ inputs.windsor_test_config }}"
+        Write-Host "Docker Host: ${{ inputs.docker_host }}"
+        Write-Host "----------------------------------------"
+      shell: powershell
+      
     - name: Install Aqua on Windows
       run: |
         $url = "https://github.com/aquaproj/aqua/releases/download/v2.48.2-0/aqua_windows_amd64.zip"
@@ -527,7 +509,6 @@ runs:
         echo "Windows Integration Test Results"
         echo "----------------------------------------"
         echo "Status: ${{ steps.test_results.outputs.status }}"
-        echo "Platform: ${{ inputs.platform }}"
         echo "Windsor Up Used: ${{ inputs.windsor_up }}"
         echo "----------------------------------------"
       shell: powershell 

@@ -1,4 +1,4 @@
-name: 'Integration Test'
+name: 'Unix Integration Test'
 description: 'Runs integration tests against Windsor CLI'
 
 inputs:
@@ -27,10 +27,6 @@ inputs:
     description: 'Docker host address for remote Docker operations'
     required: false
     default: ''
-  platform:
-    description: 'Platform OS (e.g., linux, windows)'
-    required: false
-    default: 'linux'
 
 outputs:
   test_status:
@@ -57,19 +53,16 @@ runs:
         echo "Release Number: ${{ inputs.release_number }}"
         echo "Windsor Test Config: ${{ inputs.windsor_test_config }}"
         echo "Docker Host: ${{ inputs.docker_host }}"
-        echo "Platform: ${{ inputs.platform }}"
         echo "----------------------------------------"
       shell: bash
 
-    # - name: Fix permissions for Linux runners
-    #   if: always() && inputs.platform == 'linux'
-    #   run: |
-    #     sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-    #     sudo chmod -R 755 $GITHUB_WORKSPACE
-    #   shell: bash
+    - name: Fix permissions for Linux runners
+      run: |
+        sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+        sudo chmod -R 755 $GITHUB_WORKSPACE
+      shell: bash
       
-    - name: Install Aqua on Linux and macOS
-      if: inputs.platform == 'linux' || inputs.platform == 'darwin'
+    - name: Install Aqua
       env: 
         AQUA_DISABLE_COSIGN: true
         AQUA_DISABLE_SLSA: true
@@ -77,108 +70,6 @@ runs:
       uses: aquaproj/aqua-installer@e2d0136abcf70b7a2f6f505720640750557c4b33 # v3.1.1
       with:
         aqua_version: v2.43.1
-
-    - name: Install Aqua on Windows
-      if: inputs.platform == 'win32'
-      env: 
-        AQUA_DISABLE_COSIGN: true
-        AQUA_DISABLE_SLSA: true
-        AQUA_LOG_LEVEL: debug
-      run: |
-        $url = "https://github.com/aquaproj/aqua/releases/download/v2.48.2-0/aqua_windows_amd64.zip"
-        $output = "aqua_windows_amd64.zip"
-        $installPath = "$env:USERPROFILE\\aqua"
-        
-        # Remove existing directory if it exists
-        if (Test-Path $installPath) {
-          Remove-Item -Recurse -Force $installPath
-        }
-        
-        Invoke-WebRequest -Uri $url -OutFile $output
-        Expand-Archive -Path $output -DestinationPath $installPath -Force
-        
-        # Add the install path to the PATH environment variable
-        "$installPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        Set-Item Env:Path "$Env:LOCALAPPDATA\aquaproj-aqua\bin;$Env:Path"
-        "$Env:LOCALAPPDATA\aquaproj-aqua\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        
-        # Create custom aqua config without problematic packages for Windows
-        Write-Host "Creating custom Aqua config file for Windows..."
-        
-        $configLines = @(
-          "# Custom aqua config for Windows without problematic packages",
-          "registries:",
-          "- type: standard",
-          "  ref: v4.87.0",
-          "packages:",
-          "- name: hashicorp/terraform@v1.11.4",
-          "- name: kubernetes/kubectl@v1.32.3",
-          "- name: go-task/task@v3.42.1",
-          "- name: golang/go@go1.24.2",
-          "- name: docker/cli@v27.4.1",
-          "- name: docker/compose@v2.34.0",
-          "- name: helm/helm@v3.17.3"
-        )
-        
-        # Backup original aqua.yaml if exists
-        if (Test-Path aqua.yaml) {
-            Copy-Item -Path aqua.yaml -Destination aqua.yaml.bak -Force
-        }
-        
-        # Save custom config
-        $configLines | Out-File -FilePath aqua.yaml -Encoding utf8
-        
-        # Install with custom config
-        Write-Host "Installing Aqua packages with custom config..."
-        try {
-            aqua install --only-link
-            Write-Host "Successfully installed packages"
-        } catch {
-            Write-Host "Error installing packages: $_"
-            Write-Host "Continuing with tests despite installation errors..."
-            # Don't fail - we want to continue with tests
-        }
-        
-        # Restore original config if it existed
-        if (Test-Path aqua.yaml.bak) {
-            Move-Item -Path aqua.yaml.bak -Destination aqua.yaml -Force
-        }
-      shell: powershell
-      
-    - name: Install YQ on Windows
-      if: inputs.platform == 'win32'
-      run: |
-        Write-Host "Installing yq on Windows..."
-        $yqVersion = "v4.35.1"
-        $yqUrl = "https://github.com/mikefarah/yq/releases/download/${yqVersion}/yq_windows_amd64.exe"
-        
-        # Create bin directory in GitHub workspace to store yq
-        $binDir = Join-Path $env:GITHUB_WORKSPACE "bin"
-        New-Item -Path $binDir -ItemType Directory -Force | Out-Null
-        $yqPath = Join-Path $binDir "yq.exe"
-        
-        # Download yq
-        Write-Host "Downloading yq from $yqUrl to $yqPath"
-        Invoke-WebRequest -Uri $yqUrl -OutFile $yqPath
-        
-        # Add bin directory to PATH
-        Write-Host "Adding $binDir to PATH"
-        $env:PATH = "$binDir;$env:PATH"
-        [Environment]::SetEnvironmentVariable("PATH", $env:PATH, "Process")
-        
-        # Add to GITHUB_PATH for subsequent steps
-        Write-Host "$binDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        
-        # Verify yq installation
-        try {
-            $yqVersion = (& $yqPath --version) 2>&1
-            Write-Host "Successfully installed yq: $yqVersion"
-        }
-        catch {
-            Write-Host "Error verifying yq installation: $_"
-            exit 1
-        }
-      shell: powershell
 
     - name: Print Aqua Path
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
@@ -444,8 +335,7 @@ runs:
             core.setFailed(`Failed to check pod status: ${error.message}`);
           }
 
-    - name: Run Tests on Linux and MacOS
-      if: inputs.platform != 'win32'
+    - name: Run Tests
       run: |
         # Don't use error trapping - it's causing confusion in output
         set +e
@@ -826,153 +716,6 @@ runs:
         echo "✅ All tests completed successfully!"
       shell: bash
 
-    - name: Run Tests on Windows
-      if: inputs.platform == 'win32'
-      run: |
-        $ErrorActionPreference = "Continue"
-        
-        Write-Host "========================================="
-        Write-Host "          PREPARING TESTS                "
-        Write-Host "========================================="
-        
-        # IMPORTANT: DO NOT parse the YAML file on Windows - just use hard-coded tests
-        Write-Host "Using Windows-specific tests instead of parsing YAML config"
-        
-        # Define Windows-specific tests that are known to work
-        $windowsTests = @(
-            @{
-                path = "tests\shell\windows-test.bat"
-                type = "shell"
-            },
-            @{
-                path = "tests\shell\sample-test-win.bat"
-                type = "shell"
-            }
-        )
-        
-        Write-Host "Will run $($windowsTests.Count) Windows-specific tests"
-        
-        $tempDir = Join-Path $env:TEMP "WindsorTests_$(Get-Random)"
-        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
-        
-        $successCount = 0
-        $failCount = 0
-        
-        Write-Host "========================================="
-        Write-Host "              RUNNING TESTS              "
-        Write-Host "========================================="
-        
-        foreach ($test in $windowsTests) {
-            $testPath = $test.path
-            $testType = $test.type
-            
-            Write-Host "Processing Windows test: $testPath (type: $testType)"
-            
-            # Create full path with proper Windows path format
-            $fullPath = Join-Path $env:GITHUB_WORKSPACE $testPath
-            
-            if (-not (Test-Path $fullPath)) {
-                # Try to find the file - it might not exist yet
-                Write-Host "Test file not found: $fullPath, will create it"
-                
-                # Create directory if it doesn't exist
-                $testDir = Split-Path $fullPath -Parent
-                if (-not (Test-Path $testDir)) {
-                    New-Item -ItemType Directory -Path $testDir -Force | Out-Null
-                    Write-Host "Created directory: $testDir"
-                }
-                
-                # Create a minimal test file - using echo instead of heredoc
-                if ($testPath -eq "tests\shell\windows-test.bat") {
-                    $content = @(
-                        "@echo off",
-                        "echo Running Windsor Windows Test",
-                        "echo Testing on Windows version:",
-                        "ver",
-                        "echo Test completed successfully!",
-                        "exit /b 0"
-                    )
-                    $content | Out-File -FilePath $fullPath -Encoding ASCII
-                }
-                elseif ($testPath -eq "tests\shell\sample-test-win.bat") {
-                    $content = @(
-                        "@echo off",
-                        "echo Hello, World from Windows!",
-                        "echo Testing Windsor on Windows",
-                        "exit /b 0"
-                    )
-                    $content | Out-File -FilePath $fullPath -Encoding ASCII
-                }
-                
-                if (Test-Path $fullPath) {
-                    Write-Host "Created test file: $fullPath"
-                } else {
-                    Write-Host "Error: Failed to create test file: $fullPath"
-                    $failCount++
-                    continue
-                }
-            }
-            
-            # Execute test
-            Write-Host "Executing test: $fullPath"
-            Write-Host "Test file details:"
-            Get-Item $fullPath | Select-Object FullName, Length, LastWriteTime | Format-List
-            
-            Write-Host "Test file content preview:"
-            Get-Content $fullPath -TotalCount 5
-            Write-Host "-------------------"
-            
-            try {
-                if ($testType -eq "shell") {
-                    # For batch files, execute directly
-                    Write-Host "Running batch file directly..."
-                    cmd /c $fullPath
-                    $exitCode = $LASTEXITCODE
-                    
-                    Write-Host "Test exit code: $exitCode"
-                    
-                    if ($exitCode -ne 0) {
-                        Write-Host "Error: Test execution failed with exit code $exitCode"
-                        $failCount++
-                    } else {
-                        Write-Host "Test executed successfully"
-                        $successCount++
-                    }
-                } else {
-                    Write-Host "Error: Unsupported test type for Windows: $testType"
-                    $failCount++
-                }
-            } catch {
-                Write-Host "Error executing test: $_"
-                $failCount++
-            }
-        }
-        
-        Write-Host "========================================="
-        Write-Host "           TEST EXECUTION SUMMARY        "
-        Write-Host "========================================="
-        Write-Host "Success: $successCount"
-        Write-Host "Failed:  $failCount"
-        Write-Host "Test details:"
-        Write-Host "- Total tests attempted: $($successCount + $failCount)"
-        
-        # Clean up
-        Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
-        
-        # Set outputs
-        "TEST_SUCCESS_COUNT=$successCount" | Out-File -FilePath $env:GITHUB_ENV -Append
-        "TEST_FAIL_COUNT=$failCount" | Out-File -FilePath $env:GITHUB_ENV -Append
-        
-        # Exit with appropriate code
-        if ($failCount -gt 0) {
-            Write-Host "⚠️ One or more tests failed! Check logs above for details."
-            exit 1
-        } else {
-            Write-Host "✅ All tests completed successfully!"
-            exit 0
-        }
-      shell: powershell
-
     - name: Set Test Results
       id: test_results
       uses: actions/github-script@v7
@@ -1000,7 +743,6 @@ runs:
         echo "Integration Test Results"
         echo "----------------------------------------"
         echo "Status: ${{ steps.test_results.outputs.status }}"
-        echo "Platform: ${{ inputs.platform }}"
         echo "Windsor Up Used: ${{ inputs.windsor_up }}"
         echo "----------------------------------------"
       shell: bash

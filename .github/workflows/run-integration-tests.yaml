@@ -41,7 +41,6 @@ jobs:
     outputs:
       UNIX_RUNNER_LIST: ${{ steps.unix_runner_prep.outputs.RUNNER_LIST }}
       WINDOWS_RUNNER_LIST: ${{ steps.windows_runner_prep.outputs.RUNNER_LIST }}
-      PLATFORM_OS: ${{ steps.platform_detection.outputs.PLATFORM_OS }}
       WINDSOR_TEST_CONFIG_PATH: ${{ steps.config_path.outputs.WINDSOR_TEST_CONFIG_PATH }}
       VERSION: ${{ steps.set_release_info.outputs.VERSION }}
       RELEASE_BRANCH: ${{ steps.set_release_info.outputs.RELEASE_BRANCH }}
@@ -91,14 +90,6 @@ jobs:
           echo "RELEASE_NUMBER=${{ env.RELEASE_NUMBER }}" >> $GITHUB_OUTPUT
         shell: bash
 
-      - name: Determine Platform Type
-        id: platform_detection
-        run: |
-          PLATFORM_OS=$(uname | tr '[:upper:]' '[:lower:]')
-          echo "PLATFORM_OS=$PLATFORM_OS" >> $GITHUB_OUTPUT
-          echo "Detected platform: $PLATFORM_OS"
-        shell: bash
-
       - name: Set Windsor Test Config Path
         id: config_path
         run: |
@@ -125,7 +116,6 @@ jobs:
           echo "----------------------------------------"
           echo "UNIX_RUNNER_LIST: ${{ steps.unix_runner_prep.outputs.RUNNER_LIST }}"
           echo "WINDOWS_RUNNER_LIST: ${{ steps.windows_runner_prep.outputs.RUNNER_LIST }}"
-          echo "PLATFORM_OS: ${{ steps.platform_detection.outputs.PLATFORM_OS }}"
           echo "WINDSOR_TEST_CONFIG_PATH: ${{ steps.config_path.outputs.WINDSOR_TEST_CONFIG_PATH }}"
           echo "VERSION: ${{ steps.set_release_info.outputs.VERSION }}"
           echo "RELEASE_BRANCH: ${{ steps.set_release_info.outputs.RELEASE_BRANCH }}"
@@ -163,7 +153,7 @@ jobs:
           echo "----------------------------------------"
         shell: bash
         
-      - name: Run Integration Test
+      - name: Run Unix Integration Test
         uses: ./.github/actions/unix-integration-test
         with:
           windsor_up: ${{ inputs.windsor_up }}
@@ -172,7 +162,6 @@ jobs:
           release_number: ${{ needs.integration-test-prep.outputs.RELEASE_NUMBER }}
           windsor_test_config: ${{ needs.integration-test-prep.outputs.WINDSOR_TEST_CONFIG_PATH }}
           docker_host: ${{ matrix.runner.docker_host }}
-          platform: ${{ needs.integration-test-prep.outputs.PLATFORM_OS }}
 
   windows-integration-tests:
     name: Windows Tests
@@ -197,4 +186,3 @@ jobs:
           release_number: ${{ needs.integration-test-prep.outputs.RELEASE_NUMBER }}
           windsor_test_config: ${{ needs.integration-test-prep.outputs.WINDSOR_TEST_CONFIG_PATH }}
           docker_host: ${{ matrix.runner.docker_host }}
-          platform: "win32"
