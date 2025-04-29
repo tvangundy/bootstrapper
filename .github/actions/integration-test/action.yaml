@@ -688,13 +688,6 @@ runs:
               full_path="$GITHUB_WORKSPACE/$path"
             fi
             
-            # Check if the test script exists
-            if [ ! -f "$full_path" ]; then
-              echo "Error: Test script not found: $full_path"
-              ((fail_count++))
-              continue
-            fi
-            
             # Run the test
             if [ "$USE_DOCKER" == "true" ]; then
               echo "Running test in Docker..."
@@ -709,16 +702,73 @@ runs:
               fi
             else
               echo "Running test directly with Bash..."
-              chmod +x "$full_path"
-              if ! bash "$full_path"; then
-                echo "Error: Script execution failed"
+              
+              # Check if path is a directory and type is bats
+              if [ -d "$full_path" ] && [ "$type" == "bats" ]; then
+                echo "Path is a directory and type is 'bats', looking for .bats files..."
+                bats_files=$(find "$full_path" -name "*.bats" -type f)
+                
+                if [ -z "$bats_files" ]; then
+                  echo "Error: No .bats files found in directory: $full_path"
+                  ((fail_count++))
+                  continue
+                fi
+                
+                echo "Found $(echo "$bats_files" | wc -l | tr -d ' ') .bats files"
+                
+                # Check if bats is installed
+                if ! command -v bats &> /dev/null; then
+                  echo "Installing bats-core..."
+                  if [ "$(uname)" == "Darwin" ]; then
+                    # macOS
+                    brew install bats-core || {
+                      echo "Error: Failed to install bats-core" 
+                      ((fail_count++))
+                      continue
+                    }
+                  else
+                    # Linux
+                    npm install -g bats || {
+                      echo "Error: Failed to install bats-core" 
+                      ((fail_count++))
+                      continue
+                    }
+                  fi
+                fi
+                
+                # Run all bats files
+                test_success=true
+                for bats_file in $bats_files; do
+                  echo "Running bats test: $bats_file"
+                  if ! bats "$bats_file"; then
+                    echo "Error: Bats test failed: $bats_file"
+                    test_success=false
+                  fi
+                done
+                
+                if [ "$test_success" == "false" ]; then
+                  ((fail_count++))
+                  continue
+                fi
+              elif [ -f "$full_path" ]; then
+                # Regular file test
+                chmod +x "$full_path"
+                if ! bash "$full_path"; then
+                  echo "Error: Script execution failed"
+                  ((fail_count++))
+                  continue
+                fi
+              else
+                echo "Error: Path is neither a valid file nor a directory containing bats tests: $full_path"
                 ((fail_count++))
                 continue
               fi
+              
+              ((success_count++))
+              echo "Test executed successfully"
+            else
+              echo "Skipping $type test at $path for OS $current_os"
             fi
-            
-            ((success_count++))
-            echo "Test executed successfully"
           else
             echo "Skipping $type test at $path for OS $current_os"
           fi
@@ -953,30 +1003,82 @@ runs:
                     # Use absolute path
                     $fullPath = if ([System.IO.Path]::IsPathRooted($path)) { $path } else { Join-Path $env:GITHUB_WORKSPACE $path }
                     
-                    if (-not (Test-Path $fullPath)) {
-                        Write-Host "Error: Test script not found: $fullPath"
-                        $failCount++
-                        continue
-                    }
-
                     if ($env:USE_DOCKER -eq "true") {
                         Write-Host "Running test in Docker..."
                         docker run --rm -i `
                             -v "${env:GITHUB_WORKSPACE}:/workspace" `
                             -w /workspace `
                             windsortest:latest `
-                            bash -c "dos2unix '${path}' && bash '${path}'"
+                            bash -c "chmod +x '$path' && bash '${path}'"
                         
                         if ($LASTEXITCODE -ne 0) {
                             throw "Docker test failed with exit code $LASTEXITCODE"
                         }
                     } else {
-                        Write-Host "Running test directly with Bash..."
-                        # Use -c for PowerShell quoting
-                        bash -c "dos2unix '${fullPath}' 2>/dev/null || true; bash '${fullPath}'"
-                        
-                        if ($LASTEXITCODE -ne 0) {
-                            throw "Script execution failed with exit code $LASTEXITCODE"
+                        # Check if path is a directory and type is bats
+                        if ((Test-Path -Path $fullPath -PathType Container) -and $type -eq "bats") {
+                            Write-Host "Path is a directory and type is 'bats', looking for .bats files..."
+                            $batsFiles = Get-ChildItem -Path $fullPath -Filter "*.bats" -Recurse -File
+                            
+                            if ($batsFiles.Count -eq 0) {
+                                Write-Host "Error: No .bats files found in directory: $fullPath"
+                                $failCount++
+                                continue
+                            }
+                            
+                            Write-Host "Found $($batsFiles.Count) .bats files"
+                            
+                            # Check if bats is installed
+                            try {
+                                $batsVersion = Invoke-Expression "bats --version" 2>&1
+                                Write-Host "Using bats version: $batsVersion"
+                            } catch {
+                                Write-Host "Installing bats-core..."
+                                try {
+                                    # Try using npm to install bats
+                                    Invoke-Expression "npm install -g bats" 2>&1
+                                } catch {
+                                    Write-Host "Error: Failed to install bats-core"
+                                    $failCount++
+                                    continue
+                                }
+                            }
+                            
+                            # Run all bats files
+                            $testSuccess = $true
+                            foreach ($batsFile in $batsFiles) {
+                                Write-Host "Running bats test: $($batsFile.FullName)"
+                                try {
+                                    # Convert to Unix line endings and run bats
+                                    Invoke-Expression "dos2unix '$($batsFile.FullName)' 2>/dev/null || true"
+                                    Invoke-Expression "bats '$($batsFile.FullName)'"
+                                    
+                                    if ($LASTEXITCODE -ne 0) {
+                                        Write-Host "Error: Bats test failed: $($batsFile.FullName)"
+                                        $testSuccess = $false
+                                    }
+                                } catch {
+                                    Write-Host "Error running bats test: $_"
+                                    $testSuccess = $false
+                                }
+                            }
+                            
+                            if (-not $testSuccess) {
+                                $failCount++
+                                continue
+                            }
+                        } elseif (Test-Path -Path $fullPath -PathType Leaf) {
+                            Write-Host "Running test directly with Bash..."
+                            # Use -c for PowerShell quoting
+                            bash -c "dos2unix '${fullPath}' 2>/dev/null || true; bash '${fullPath}'"
+                            
+                            if ($LASTEXITCODE -ne 0) {
+                                throw "Script execution failed with exit code $LASTEXITCODE"
+                            }
+                        } else {
+                            Write-Host "Error: Path is neither a valid file nor a directory containing bats tests: $fullPath"
+                            $failCount++
+                            continue
                         }
                     }
                     
