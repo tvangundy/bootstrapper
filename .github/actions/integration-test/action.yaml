@@ -465,83 +465,152 @@ runs:
         # Try to read tests from YAML file
         echo "Reading test configuration..."
         
-        # Parse YAML file manually if yq isn't available
+        # Parse YAML file manually
         parse_yaml() {
           # Function to parse YAML and extract tests-list
           local file="$1"
-          local in_tests_list=false
-          local tests=()
-          local current_test=""
-          local current_path=""
-          local current_type="shell"
-          local current_shell="bash"
-          local current_os=""
+          local yaml_content=$(<"$file")
           
-          # Read file line by line
-          while IFS= read -r line; do
-            # Check for tests-list section
-            if [[ "$line" == "tests-list:" ]]; then
-              in_tests_list=true
-              continue
-            fi
-            
-            # Process tests list entries
-            if [ "$in_tests_list" = true ]; then
-              # Check for new test item
-              if [[ "$line" =~ ^[[:space:]]*-[[:space:]] ]]; then
-                # Save previous test if exists
-                if [ -n "$current_path" ]; then
-                  tests+=("$current_path|$current_type|$current_shell|$current_os")
-                fi
-                
-                # Reset for new test
-                current_path=""
-                current_type="shell"
-                current_shell="bash"
-                current_os=""
-                
-                # Extract property from initial line if present
-                if [[ "$line" =~ ^[[:space:]]*-[[:space:]]*([^:]+):[[:space:]]*(.+)$ ]]; then
-                  key="${BASH_REMATCH[1]}"
-                  value="${BASH_REMATCH[2]}"
-                  case "$key" in
-                    path) current_path="$value" ;;
-                    type) current_type="$value" ;;
-                    shell) current_shell="$value" ;;
-                    os) current_os="$value" ;;
-                  esac
-                fi
-              # Process test property
-              elif [[ "$line" =~ ^[[:space:]]*([^:]+):[[:space:]]*(.+)$ ]]; then
-                key="${BASH_REMATCH[1]}"
-                value="${BASH_REMATCH[2]}"
-                case "$key" in
-                  path) current_path="$value" ;;
-                  type) current_type="$value" ;;
-                  shell) current_shell="$value" ;;
-                  os) current_os="$value" ;;
-                esac
-              # Check for end of tests-list section (unindented line)
-              elif [[ ! "$line" =~ ^[[:space:]] && -n "$line" ]]; then
-                in_tests_list=false
-                
-                # Add last test
-                if [ -n "$current_path" ]; then
-                  tests+=("$current_path|$current_type|$current_shell|$current_os")
-                fi
-              fi
-            fi
-          done < "$file"
-          
-          # Add final test if we reached end of file
-          if [ "$in_tests_list" = true ] && [ -n "$current_path" ]; then
-            tests+=("$current_path|$current_type|$current_shell|$current_os")
+          # Extract tests-list section using regex
+          if [[ $yaml_content =~ tests-list:[[:space:]]*$ ]]; then
+            # If tests-list is found but there's no content after it
+            echo "Warning: tests-list section found but appears to be empty"
+            return
           fi
           
-          # Output tests
-          for test in "${tests[@]}"; do
-            echo "$test"
-          done
+          # Extract tests-list section (better regex approach)
+          if [[ $yaml_content =~ tests-list:(.*?)([^[:space:]]:[[:space:]]|$) ]]; then
+            local tests_list_section="${BASH_REMATCH[1]}"
+            
+            # Process the tests_list_section into an array of test objects
+            local test_lines=$(echo "$tests_list_section" | grep -E '^\s*-')
+            local indent_level=0
+            local current_test=""
+            local processed_tests=()
+            
+            # First, calculate the indent level of test items
+            if [[ $(echo "$test_lines" | head -1) =~ ^([[:space:]]*) ]]; then
+              indent_level=${#BASH_REMATCH[1]}
+            fi
+            
+            # Process each line of the yaml content
+            local current_test_path=""
+            local current_test_type="shell"
+            local current_test_shell="bash"
+            local current_test_os=""
+            local in_test=false
+            local collecting_array=false
+            local array_property=""
+            local array_value=""
+            
+            while IFS= read -r line; do
+              # Skip empty lines
+              [[ -z "$line" ]] && continue
+              
+              # Check if this line is the start of a new test
+              if [[ "$line" =~ ^[[:space:]]{$indent_level}-[[:space:]] ]]; then
+                # Save previous test if exists
+                if [ -n "$current_test_path" ]; then
+                  processed_tests+=("$current_test_path|$current_test_type|$current_test_shell|$current_test_os")
+                fi
+                
+                # Reset test properties
+                current_test_path=""
+                current_test_type="shell"
+                current_test_shell="bash"
+                current_test_os=""
+                in_test=true
+                collecting_array=false
+                
+                # Check if this line also contains a property
+                if [[ "$line" =~ ^[[:space:]]{$indent_level}-[[:space:]]*([^:]+):[[:space:]]*(.+)$ ]]; then
+                  key="${BASH_REMATCH[1]}"
+                  value="${BASH_REMATCH[2]}"
+                  
+                  case "$key" in
+                    path) current_test_path="$value" ;;
+                    type) current_test_type="$value" ;;
+                    shell) current_test_shell="$value" ;;
+                    os) 
+                      # Handle os property in array format [val1, val2] or starting multi-line array
+                      if [[ "$value" =~ ^\[(.*)\]$ ]]; then
+                        # Array in single line format [val1, val2]
+                        current_test_os="${BASH_REMATCH[1]}"
+                      elif [[ "$value" == "[" ]]; then
+                        # Start of multi-line array
+                        collecting_array=true
+                        array_property="os"
+                        array_value=""
+                      else
+                        current_test_os="$value"
+                      fi
+                      ;;
+                  esac
+                fi
+              elif [[ "$in_test" == true && ! "$collecting_array" == true && "$line" =~ ^[[:space:]]{$((indent_level+2))}([^:]+):[[:space:]]*(.+)$ ]]; then
+                # Regular property within a test
+                key="${BASH_REMATCH[1]}"
+                value="${BASH_REMATCH[2]}"
+                
+                case "$key" in
+                  path) current_test_path="$value" ;;
+                  type) current_test_type="$value" ;;
+                  shell) current_test_shell="$value" ;;
+                  os)
+                    # Handle os property in array format [val1, val2] or starting multi-line array
+                    if [[ "$value" =~ ^\[(.*)\]$ ]]; then
+                      # Array in single line format [val1, val2]
+                      current_test_os="${BASH_REMATCH[1]}"
+                    elif [[ "$value" == "[" ]]; then
+                      # Start of multi-line array
+                      collecting_array=true
+                      array_property="os"
+                      array_value=""
+                    else
+                      current_test_os="$value"
+                    fi
+                    ;;
+                esac
+              elif [[ "$collecting_array" == true && "$line" =~ ^[[:space:]]{$((indent_level+4))}(.+)$ ]]; then
+                # Array item in a multi-line array
+                item="${BASH_REMATCH[1]}"
+                # Remove trailing commas
+                item="${item%,}"
+                
+                # Add item to array value
+                array_value+="$item,"
+              elif [[ "$collecting_array" == true && "$line" =~ ^[[:space:]]{$((indent_level+2))}\]$ ]]; then
+                # End of multi-line array
+                collecting_array=false
+                
+                # Assign array value to appropriate property
+                if [[ "$array_property" == "os" ]]; then
+                  current_test_os="${array_value%,}" # Remove trailing comma
+                fi
+              elif [[ "$in_test" == true && "$line" =~ ^[[:space:]]{0,$indent_level}[^[:space:]] ]]; then
+                # Line with less indentation than a test, indicates we've moved out of tests-list
+                in_test=false
+                collecting_array=false
+                
+                # Save the last test
+                if [ -n "$current_test_path" ]; then
+                  processed_tests+=("$current_test_path|$current_test_type|$current_test_shell|$current_test_os")
+                fi
+              fi
+            done <<< "$yaml_content"
+            
+            # Add the last test if we ended while still in a test
+            if [[ "$in_test" == true && -n "$current_test_path" ]]; then
+              processed_tests+=("$current_test_path|$current_test_type|$current_test_shell|$current_test_os")
+            fi
+            
+            # Output tests
+            for test in "${processed_tests[@]}"; do
+              echo "$test"
+            done
+          else
+            echo "Error: Could not find tests-list section in YAML"
+          fi
         }
         
         # Parse the YAML
@@ -586,6 +655,9 @@ runs:
           else
             current_os="linux"
           fi
+          
+          # Clean up OS list (remove whitespace)
+          os_list=$(echo "$os_list" | tr -d '[:space:]')
           
           # Check if the current OS is supported for the test
           if [[ -z "$os_list" || "$os_list" == *"$current_os"* || "$os_list" == *"$PLATFORM"* ]]; then
@@ -664,79 +736,157 @@ runs:
         try {
             Write-Host "Reading test configuration file directly..."
             
-            # Read the file line by line
+            # Read the entire file content
             $yamlContent = Get-Content -Path $testConfigPath -Raw
-            $lines = $yamlContent -split "`n"
             
-            $inTestsList = $false
-            $tests = @()
-            $currentTest = $null
-            
-            foreach ($line in $lines) {
-                # Check for tests-list section start
-                if ($line.Trim() -eq "tests-list:") {
-                    $inTestsList = $true
-                    continue
+            # Find the tests-list section
+            if ($yamlContent -match "tests-list:(.*?)([^\s]:\s|$)") {
+                $testsListSection = $matches[1]
+                
+                # Find the indentation level of the first test item
+                $indentMatch = $testsListSection -split "`n" | Where-Object { $_ -match "^\s*-\s" } | Select-Object -First 1
+                $indentLevel = 0
+                if ($indentMatch -match "^(\s*)") {
+                    $indentLevel = $matches[1].Length
                 }
                 
-                # Process tests list entries
-                if ($inTestsList) {
-                    # Check for new test item
-                    if ($line.Trim().StartsWith("- ")) {
+                # Initialize variables
+                $tests = @()
+                $currentTestPath = $null
+                $currentTestType = "shell"
+                $currentTestShell = "bash"
+                $currentTestOs = $null
+                $inTest = $false
+                $collectingArray = $false
+                $arrayProperty = $null
+                $arrayValue = $null
+                
+                # Process each line
+                foreach ($line in ($testsListSection -split "`n")) {
+                    # Skip empty lines
+                    if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                    
+                    # Check if this is a new test item
+                    if ($line -match "^\s{$indentLevel}-\s") {
                         # Save previous test if exists
-                        if ($currentTest) {
-                            $tests += $currentTest
+                        if ($currentTestPath) {
+                            $tests += @{
+                                path = $currentTestPath
+                                type = $currentTestType
+                                shell = $currentTestShell
+                                os = $currentTestOs
+                            }
                         }
                         
-                        # Start new test
-                        $currentTest = @{
-                            path = $null
-                            type = "shell"
-                            shell = "bash"
-                            os = @()
-                        }
+                        # Reset test properties
+                        $currentTestPath = $null
+                        $currentTestType = "shell"
+                        $currentTestShell = "bash"
+                        $currentTestOs = $null
+                        $inTest = $true
+                        $collectingArray = $false
                         
-                        # Extract property from initial line if present
-                        if ($line.Trim() -match "^- ([^:]+): (.+)$") {
+                        # Check if this line also contains a property
+                        if ($line -match "^\s{$indentLevel}-\s+([^:]+):\s*(.+)$") {
                             $key = $matches[1].Trim()
                             $value = $matches[2].Trim()
-                            $currentTest[$key] = $value
+                            
+                            switch ($key) {
+                                "path" { $currentTestPath = $value }
+                                "type" { $currentTestType = $value }
+                                "shell" { $currentTestShell = $value }
+                                "os" {
+                                    # Handle os property in array format [val1, val2] or starting multi-line array
+                                    if ($value -match "^\[(.*)\]$") {
+                                        # Array in single line format [val1, val2]
+                                        $currentTestOs = $matches[1]
+                                    } elseif ($value -eq "[") {
+                                        # Start of multi-line array
+                                        $collectingArray = $true
+                                        $arrayProperty = "os"
+                                        $arrayValue = ""
+                                    } else {
+                                        $currentTestOs = $value
+                                    }
+                                }
+                            }
                         }
-                    }
-                    # Process test property
-                    elseif ($line.Trim() -match "^([^:]+): (.+)$" -and $currentTest) {
+                    } elseif ($inTest -and -not $collectingArray -and $line -match "^\s{$($indentLevel+2)}([^:]+):\s*(.+)$") {
+                        # Regular property within a test
                         $key = $matches[1].Trim()
                         $value = $matches[2].Trim()
                         
-                        # Handle os as an array
-                        if ($key -eq "os") {
-                            $currentTest[$key] = @($value -split "," | ForEach-Object { $_.Trim() })
-                        } else {
-                            $currentTest[$key] = $value
+                        switch ($key) {
+                            "path" { $currentTestPath = $value }
+                            "type" { $currentTestType = $value }
+                            "shell" { $currentTestShell = $value }
+                            "os" {
+                                # Handle os property in array format [val1, val2] or starting multi-line array
+                                if ($value -match "^\[(.*)\]$") {
+                                    # Array in single line format [val1, val2]
+                                    $currentTestOs = $matches[1]
+                                } elseif ($value -eq "[") {
+                                    # Start of multi-line array
+                                    $collectingArray = $true
+                                    $arrayProperty = "os"
+                                    $arrayValue = ""
+                                } else {
+                                    $currentTestOs = $value
+                                }
+                            }
                         }
-                    }
-                    # Check for end of tests-list section
-                    elseif (-not $line.StartsWith("  ") -and $line.Trim() -ne "") {
-                        $inTestsList = $false
+                    } elseif ($collectingArray -and $line -match "^\s{$($indentLevel+4)}(.+)$") {
+                        # Array item in a multi-line array
+                        $item = $matches[1].Trim()
+                        # Remove trailing commas
+                        $item = $item -replace ",\s*$", ""
                         
-                        # Add last test
-                        if ($currentTest) {
-                            $tests += $currentTest
+                        # Add item to array value
+                        $arrayValue += "$item,"
+                    } elseif ($collectingArray -and $line -match "^\s{$($indentLevel+2)}\]$") {
+                        # End of multi-line array
+                        $collectingArray = $false
+                        
+                        # Assign array value to appropriate property
+                        if ($arrayProperty -eq "os") {
+                            $currentTestOs = $arrayValue.TrimEnd(',')
+                        }
+                    } elseif ($inTest -and $line -match "^\s{0,$indentLevel}[^\s]") {
+                        # Line with less indentation than a test, indicates we've moved out of tests-list
+                        $inTest = $false
+                        $collectingArray = $false
+                        
+                        # Save the last test
+                        if ($currentTestPath) {
+                            $tests += @{
+                                path = $currentTestPath
+                                type = $currentTestType
+                                shell = $currentTestShell
+                                os = $currentTestOs
+                            }
                         }
                     }
                 }
-            }
-            
-            # Add final test if we reached end of file
-            if ($inTestsList -and $currentTest) {
-                $tests += $currentTest
-            }
-            
-            Write-Host "Successfully parsed $($tests.Count) tests from config file"
-            
-            # Print discovered tests
-            foreach ($test in $tests) {
-                Write-Host "Found test: Path=$($test.path), Type=$($test.type), Shell=$($test.shell)"
+                
+                # Add the last test if we ended while still in a test
+                if ($inTest -and $currentTestPath) {
+                    $tests += @{
+                        path = $currentTestPath
+                        type = $currentTestType
+                        shell = $currentTestShell
+                        os = $currentTestOs
+                    }
+                }
+                
+                Write-Host "Successfully parsed $($tests.Count) tests from config file"
+                
+                # Print discovered tests
+                foreach ($test in $tests) {
+                    Write-Host "Found test: Path=$($test.path), Type=$($test.type), Shell=$($test.shell), OS=$($test.os)"
+                }
+            } else {
+                Write-Host "Error: Could not find tests-list section in YAML file"
+                exit 1
             }
         } catch {
             Write-Host "Error parsing YAML file: $_"
@@ -761,16 +911,18 @@ runs:
             }
             
             $type = $test.type
-            $osList = $test.os
             $shell = $test.shell
-
+            
+            # Clean up OS list (remove whitespace)
+            $osList = $test.os -replace '\s+', ''
+            
             # Check if the current OS is supported for the test
-            if (-not $osList -or $osList.Count -eq 0 -or $osList -contains "win32" -or $osList -contains "windows") {
+            if (-not $osList -or $osList.Count -eq 0 -or $osList -match "win32" -or $osList -match "windows") {
                 try {
                     Write-Host "Running $type tests with path = $path"
 
                     # Use absolute path
-                    $fullPath = Join-Path $env:GITHUB_WORKSPACE $path
+                    $fullPath = if ([System.IO.Path]::IsPathRooted($path)) { $path } else { Join-Path $env:GITHUB_WORKSPACE $path }
                     
                     if (-not (Test-Path $fullPath)) {
                         Write-Host "Error: Test script not found: $fullPath"
