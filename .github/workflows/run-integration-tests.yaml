@@ -69,7 +69,7 @@ jobs:
           release: ${{ inputs.release }}
           repo_owner: ${{ inputs.target_repo_owner }}
           repo_name: ${{ inputs.target_repo_name }}
-          token: ${{ inputs.token }}
+          token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}
     
       - name: Display Release Info
         run: |
