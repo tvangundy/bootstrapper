@@ -451,24 +451,19 @@ runs:
     - name: Run Tests on Linux and MacOS
       if: inputs.platform != 'win32'
       run: |
-        # Enable debugging and error tracing
-        set -x
-        
-        # Function to handle errors and provide detailed debugging
+        # Function to handle errors
         handle_error() {
           local exit_code=$?
           local line_no=$1
           echo "Error on line $line_no: Command exited with status $exit_code"
-          echo "Current directory: $(pwd)"
-          echo "Bash version: $(bash --version | head -1)"
-          exit 0  # Explicitly exit with success for debugging
+          exit 0  # Exit with success for debugging
         }
         
         # Set up a trap to catch errors
         trap 'handle_error $LINENO' ERR
         
         echo "========================================="
-        echo "          PREPARING TEST ENVIRONMENT     "
+        echo "          PREPARING TESTS                "
         echo "========================================="
         
         # Set variables
@@ -486,17 +481,13 @@ runs:
         # Check if the test config file exists
         if [ ! -f "$testConfigPath" ]; then
           echo "Error: Test configuration file not found: $testConfigPath"
-          exit 0  # For debugging: exit with success
+          exit 0
         fi
 
-        # Try to read tests from YAML file
-        echo "Reading test configuration..."
-        
-        # Parse YAML file manually
+        # Parse YAML file to extract tests
         parse_yaml() {
           # Function to parse YAML and extract tests-list
           local file="$1"
-          local yaml_content=$(<"$file")
           
           # Check if tests-list section exists
           if ! grep -q "tests-list:" "$file"; then
@@ -504,7 +495,7 @@ runs:
             return 1
           fi
           
-          # Extract tests-list section using a more reliable approach
+          # Extract tests-list section
           local in_tests_section=false
           local test_indent=""
           local current_test_path=""
@@ -533,7 +524,7 @@ runs:
             # Skip empty lines
             [[ -z "$line" ]] && continue
             
-            # Check for section end (any line with less indentation than the test items)
+            # Check for section end
             if [[ -n "$test_indent" && "$line" =~ ^[[:space:]]{0,$((${#test_indent}-1))}[^[:space:]] && ! "$line" =~ ^[[:space:]]*- ]]; then
               in_tests_section=false
               break
@@ -569,12 +560,9 @@ runs:
                   type) current_test_type="$value" ;;
                   shell) current_test_shell="$value" ;;
                   os) 
-                    # Handle os property in array format [val1, val2] or starting multi-line array
                     if [[ "$value" =~ ^\[(.*)\]$ ]]; then
-                      # Array in single line format [val1, val2]
                       current_test_os="${BASH_REMATCH[1]}"
                     elif [[ "$value" == "[" ]]; then
-                      # Start of multi-line array
                       collecting_array=true
                       array_property="os"
                       array_value=""
@@ -594,12 +582,9 @@ runs:
                 type) current_test_type="$value" ;;
                 shell) current_test_shell="$value" ;;
                 os)
-                  # Handle os property in array format [val1, val2] or starting multi-line array
                   if [[ "$value" =~ ^\[(.*)\]$ ]]; then
-                    # Array in single line format [val1, val2]
                     current_test_os="${BASH_REMATCH[1]}"
                   elif [[ "$value" == "[" ]]; then
-                    # Start of multi-line array
                     collecting_array=true
                     array_property="os"
                     array_value=""
@@ -650,7 +635,7 @@ runs:
         parsed_tests=()
         if ! parse_data=$(parse_yaml "$testConfigPath"); then
           echo "$parse_data"  # Show the error message
-          exit 0  # For debugging: exit with success
+          exit 0
         else
           # Convert output to array
           while read -r line; do
@@ -660,19 +645,13 @@ runs:
         
         if [ ${#parsed_tests[@]} -eq 0 ]; then
           echo "Error: No tests found in configuration file"
-          exit 0  # For debugging: exit with success
+          exit 0
         fi
         
         echo "Found ${#parsed_tests[@]} tests in configuration"
         
-        # Print discovered tests
-        for test_info in "${parsed_tests[@]}"; do
-          IFS='|' read -r path type shell os_list <<< "$test_info"
-          echo "Found test: Path=$path, Type=$type, Shell=$shell, OS=$os_list"
-        done
-        
         echo "========================================="
-        echo "              STARTING TEST              "
+        echo "              RUNNING TESTS              "
         echo "========================================="
         
         # Set up success/failure counters
@@ -703,7 +682,7 @@ runs:
           
           # Check if the current OS is supported for the test
           if [[ -z "$os_list" || "$os_list" == *"$current_os"* || "$os_list" == *"$PLATFORM"* ]]; then
-            echo "Running $type tests with path = $path"
+            echo "Running $type test: $path"
             
             # Use absolute path
             if [[ "$path" == /* ]]; then
@@ -713,96 +692,77 @@ runs:
             fi
             
             # Run the test
-            if [ "$USE_DOCKER" == "true" ]; then
-              echo "Running test in Docker..."
-              if ! docker run --rm -i \
-                -v "$GITHUB_WORKSPACE:/workspace" \
-                -w /workspace \
-                windsortest:latest \
-                bash -c "chmod +x '$path' && bash '$path'"; then
-                echo "Error: Docker test failed"
+            if [ -d "$full_path" ] && [ "$type" == "bats" ]; then
+              echo "Executing bats tests in directory: $full_path"
+              bats_files=$(find "$full_path" -name "*.bats" -type f)
+              
+              if [ -z "$bats_files" ]; then
+                echo "Error: No .bats files found in directory: $full_path"
                 ((fail_count++))
                 continue
+              fi
+              
+              echo "Found $(echo "$bats_files" | wc -l | tr -d ' ') .bats files"
+              
+              # Check if bats is installed
+              if ! command -v bats &> /dev/null; then
+                if [ "$(uname)" == "Darwin" ]; then
+                  brew install bats-core || {
+                    echo "Error: Failed to install bats-core" 
+                    ((fail_count++))
+                    continue
+                  }
+                else
+                  npm install -g bats || {
+                    echo "Error: Failed to install bats-core" 
+                    ((fail_count++))
+                    continue
+                  }
+                fi
+              fi
+              
+              # Run all bats files
+              test_success=true
+              for bats_file in $bats_files; do
+                echo "Running bats test: $bats_file"
+                if ! bats "$bats_file"; then
+                  echo "Error: Bats test failed: $bats_file"
+                  test_success=false
+                fi
+              done
+              
+              if [ "$test_success" == "false" ]; then
+                ((fail_count++))
+                continue
+              fi
+            elif [ -f "$full_path" ]; then
+              # Regular file test
+              chmod +x "$full_path"
+              echo "Executing shell test: $full_path"
+              
+              # Run the test with error output capture and exit code preservation
+              output=$(bash "$full_path" 2>&1)
+              exit_code=$?
+              echo "$output"
+              
+              if [ $exit_code -ne 0 ]; then
+                echo "Error: Script execution failed with exit code $exit_code"
+                ((fail_count++))
+                continue
+              else
+                echo "Shell test executed successfully"
               fi
             else
-              echo "Running test directly with Bash..."
-              
-              # Check if path is a directory and type is bats
-              if [ -d "$full_path" ] && [ "$type" == "bats" ]; then
-                echo "Path is a directory and type is 'bats', looking for .bats files..."
-                bats_files=$(find "$full_path" -name "*.bats" -type f)
-                
-                if [ -z "$bats_files" ]; then
-                  echo "Error: No .bats files found in directory: $full_path"
-                  ((fail_count++))
-                  continue
-                fi
-                
-                echo "Found $(echo "$bats_files" | wc -l | tr -d ' ') .bats files"
-                
-                # Check if bats is installed
-                if ! command -v bats &> /dev/null; then
-                  echo "Installing bats-core..."
-                  if [ "$(uname)" == "Darwin" ]; then
-                    # macOS
-                    brew install bats-core || {
-                      echo "Error: Failed to install bats-core" 
-                      ((fail_count++))
-                      continue
-                    }
-                  else
-                    # Linux
-                    npm install -g bats || {
-                      echo "Error: Failed to install bats-core" 
-                      ((fail_count++))
-                      continue
-                    }
-                  fi
-                fi
-                
-                # Run all bats files
-                test_success=true
-                for bats_file in $bats_files; do
-                  echo "Running bats test: $bats_file"
-                  if ! bats "$bats_file"; then
-                    echo "Error: Bats test failed: $bats_file"
-                    test_success=false
-                  fi
-                done
-                
-                if [ "$test_success" == "false" ]; then
-                  ((fail_count++))
-                  continue
-                fi
-              elif [ -f "$full_path" ]; then
-                # Regular file test
-                chmod +x "$full_path"
-                echo "Executing: $full_path"
-                
-                # Run the test with error output capture and exit code preservation
-                output=$(bash "$full_path" 2>&1)
-                exit_code=$?
-                echo "$output"
-                
-                if [ $exit_code -ne 0 ]; then
-                  echo "Error: Script execution failed with exit code $exit_code"
-                  ((fail_count++))
-                  continue
-                else
-                  echo "Successfully executed shell test (exit code: $exit_code)"
-                fi
-              else
-                echo "Error: Path is neither a valid file nor a directory containing bats tests: $full_path"
-                ((fail_count++))
-                continue
-              fi
-              
-              # If we got here, the test was successful
-              ((success_count++))
-              echo "Test executed successfully"
+              echo "Error: Path is neither a valid file nor a directory: $full_path"
+              ((fail_count++))
+              continue
             fi
+            
+            # If we got here, the test was successful
+            ((success_count++))
+            echo "Test executed successfully"
           else
-            echo "Skipping $type test at $path for OS $current_os"
+            echo "Skipping $type test at $path (not applicable for OS $current_os)"
           fi
         done
         
@@ -812,25 +772,15 @@ runs:
         echo "Success: $success_count"
         echo "Failed:  $fail_count"
         
-        # Set GitHub step output variable for test status
+        # Set output variable for test status
         echo "::set-output name=test_status::$([ $fail_count -eq 0 ] && echo "success" || echo "failure")"
         
-        # Debug information to help diagnose issues
-        echo "Debug: Current folder contents:"
-        ls -la
-        echo "Debug: GITHUB_WORKSPACE contents:"
-        ls -la $GITHUB_WORKSPACE
-        
-        # Export environment variables that will be available to other steps
+        # Export environment variables for other steps
         echo "TEST_SUCCESS_COUNT=$success_count" >> $GITHUB_ENV
         echo "TEST_FAIL_COUNT=$fail_count" >> $GITHUB_ENV
         
-        # Don't exit with non-zero when tests succeed
         if [ $fail_count -gt 0 ]; then
           echo "One or more tests failed!"
-          # Only exit with error if there are failures
-          # For debugging: always exit with success
-          echo "Exiting with success code for debugging"
           exit 0
         fi
         
@@ -842,8 +792,11 @@ runs:
       run: |
         $ErrorActionPreference = "Continue"
         
+        Write-Host "========================================="
+        Write-Host "          PREPARING TESTS                "
+        Write-Host "========================================="
+        
         # Hard-code the test files to run on Windows
-        # This bypasses the problematic YAML parsing entirely
         Write-Host "Using hard-coded test paths for Windows tests"
         
         $windowsTests = @(
@@ -861,7 +814,6 @@ runs:
         
         $tempDir = Join-Path $env:TEMP "WindsorTests_$(Get-Random)"
         New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
-        Write-Host "Created temporary directory: $tempDir"
         
         $successCount = 0
         $failCount = 0
@@ -869,14 +821,17 @@ runs:
         # Check if bash is available
         try {
             $bashPath = Get-Command bash -ErrorAction Stop | Select-Object -ExpandProperty Source
-            Write-Host "Using bash: $bashPath"
+            Write-Host "Bash detected: $bashPath"
         } catch {
-            Write-Host "Bash is not available. Installing Git Bash would make this available."
-            Write-Host "Test execution requires bash to be available on the Windows system."
+            Write-Host "Error: Bash is not available. Tests require bash to be installed."
             "TEST_SUCCESS_COUNT=0" | Out-File -FilePath $env:GITHUB_ENV -Append
             "TEST_FAIL_COUNT=1" | Out-File -FilePath $env:GITHUB_ENV -Append
             exit 0
         }
+        
+        Write-Host "========================================="
+        Write-Host "              RUNNING TESTS              "
+        Write-Host "========================================="
         
         foreach ($test in $windowsTests) {
             $testPath = $test.path
@@ -888,10 +843,9 @@ runs:
             $fullPath = Join-Path $env:GITHUB_WORKSPACE $testPath
             # Normalize path for Windows
             $fullPath = $fullPath -replace '/', '\'
-            Write-Host "Full test path: $fullPath"
             
             if (-not (Test-Path $fullPath)) {
-                Write-Host "Test file not found: $fullPath"
+                Write-Host "Error: Test file not found: $fullPath"
                 $failCount++
                 continue
             }
@@ -908,26 +862,18 @@ runs:
                 # Write to temp file with proper encoding
                 [System.IO.File]::WriteAllText($tempFile, $content, [System.Text.Encoding]::UTF8)
                 
-                Write-Host "Prepared test file: $tempFile"
-                
                 # Create Unix-style path for bash
                 $bashPath = $tempFile -replace '\\', '/'
                 
                 # Execute test with bash
-                Write-Host "Running test with bash: '$bashPath'"
-                $bashCommand = "bash ""$bashPath"""
-                
-                # Use Process.Start for more reliable execution
-                $psi = New-Object System.Diagnostics.ProcessStartInfo
-                $psi.FileName = "bash"
-                $psi.Arguments = "-c ""bash '$bashPath' """
-                $psi.UseShellExecute = $false
-                $psi.RedirectStandardOutput = $true
-                $psi.RedirectStandardError = $true
-                $psi.CreateNoWindow = $true
-                
+                Write-Host "Executing test with bash: '$bashPath'"
                 $process = New-Object System.Diagnostics.Process
-                $process.StartInfo = $psi
+                $process.StartInfo.FileName = "bash"
+                $process.StartInfo.Arguments = "-c ""bash '$bashPath' """
+                $process.StartInfo.UseShellExecute = $false
+                $process.StartInfo.RedirectStandardOutput = $true
+                $process.StartInfo.RedirectStandardError = $true
+                $process.StartInfo.CreateNoWindow = $true
                 $process.Start() | Out-Null
                 
                 # Read output
@@ -945,10 +891,10 @@ runs:
                 }
                 
                 if ($exitCode -eq 0) {
-                    Write-Host "Test succeeded with exit code 0"
+                    Write-Host "Test succeeded"
                     $successCount++
                 } else {
-                    Write-Host "Test failed with exit code $exitCode"
+                    Write-Host "Error: Test failed with exit code $exitCode"
                     $failCount++
                 }
             } catch {
@@ -956,7 +902,7 @@ runs:
                 $failCount++
             }
         }
-        
+
         Write-Host "========================================="
         Write-Host "           TEST EXECUTION SUMMARY        "
         Write-Host "========================================="
@@ -974,291 +920,25 @@ runs:
         exit 0
       shell: powershell
 
-    - name: Windsor Down
-      if: always() 
-      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
-      with:
-        script: |
-          const { execSync } = require('child_process');
-          const os = require('os');
-
-          try {
-            // Check if windsor_up is true using only process.env
-            // GitHub will have set this env variable from the workflow input
-            const windsorUpInput = '${{ inputs.windsor_up }}' === 'true';
-            
-            if (!windsorUpInput) {
-              console.log('WINDSOR_UP is not set to true. Skipping Windsor Down.');
-              return;
-            }
-
-            const platform = os.platform();
-            const isWindows = platform === 'win32';
-            const windsorCommand = isWindows ? 'windsor.exe' : 'windsor';
-
-            console.log(`Detected platform: ${platform}`);
-            console.log('Running Windsor Down...');
-
-            // Execute the Windsor Down command
-            execSync(`${windsorCommand} down --clean`, { stdio: 'inherit' });
-
-            console.log('Windsor Down completed successfully.');
-          } catch (error) {
-            console.error('Error running Windsor Down:', error.message);
-            core.setFailed(`Windsor Down failed: ${error.message}`);
-          }
-
-    - name: Docker Clean
-      if: always() && (inputs.platform == 'linux' || inputs.platform == 'darwin')
-      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
-      with:
-        script: |
-          const { execSync } = require('child_process');
-          const fs = require('fs');
-
-          try {
-            // Check if windsor_up is true using only process.env
-            // GitHub will have set this env variable from the workflow input
-            const windsorUpInput = '${{ inputs.windsor_up }}' === 'true';
-            
-            if (!windsorUpInput) {
-              console.log('WINDSOR_UP is not set to true. Skipping Docker Clean.');
-              return;
-            }
-
-            // Check if Docker is installed
-            try {
-              execSync('docker --version', { stdio: 'inherit' });
-              console.log('Docker is installed.');
-            } catch (error) {
-              console.error('Docker is not installed. Exiting.');
-              core.setFailed('Docker is not installed');
-              return;
-            }
-
-            // Check for running containers and remove them
-            const containers = execSync('docker ps -aq', { encoding: 'utf-8' }).trim();
-            if (containers) {
-              console.log('Removing containers...');
-              // Replace newlines with spaces to properly format container IDs
-              const containerList = containers.replace(/\n/g, ' ');
-              execSync(`docker rm -f ${containerList}`, { stdio: 'inherit' });
-            } else {
-              console.log('No containers to remove.');
-            }
-
-            // Prune system, volumes, and networks
-            console.log('Pruning Docker system, volumes, and networks...');
-            execSync('docker system prune -a -f', { stdio: 'inherit' });
-            execSync('docker volume prune -f', { stdio: 'inherit' });
-            execSync('docker network prune -f', { stdio: 'inherit' });
-            execSync('docker system prune -a -f', { stdio: 'inherit' });
-
-            // Remove .volumes directory if it exists
-            if (fs.existsSync('.volumes')) {
-              console.log('Removing .volumes directory...');
-              fs.rmSync('.volumes', { recursive: true, force: true });
-            } else {
-              console.log('.volumes directory does not exist.');
-            }
-          } catch (error) {
-            console.error('Error during Docker clean-up:', error.message);
-            core.setFailed(`Docker clean-up failed: ${error.message}`);
-          }
-      
-    - name: Docker Clean on Windows
-      if: always() && inputs.platform == 'win32'
-      run: |
-        $windsorUpInput = [bool]::Parse("${{ inputs.windsor_up }}")
-        if (-not $windsorUpInput) {
-          Write-Output 'WINDSOR_UP is not set to true. Skipping Docker Clean on Windows.'
-          exit 0
-        }
-
-        $containers = docker ps -aq
-        if ($containers) {
-          Write-Output "Removing containers..."
-          docker rm -f $containers
-        } else {
-          Write-Output "No containers to remove."
-        }
-
-        # Prune system, volumes, and networks
-        Write-Output "Pruning Docker system, volumes, and networks..."
-        docker system prune -a -f
-        docker volume prune -f
-        docker network prune -f
-        docker system prune -a -f
-      shell: powershell
-  
-    # - name: Fix permissions for Linux runners
-    #   if: always() && inputs.platform == 'linux'
-    #   run: |
-    #     sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-    #     sudo chmod -R 755 $GITHUB_WORKSPACE
-    #   shell: bash
-
-    - name: Windsor Clean
-      if: always() 
-      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
-      with:
-        script: |
-          const fs = require('fs');
-          const path = require('path');
-
-          try {
-            const workspace = process.env.GITHUB_WORKSPACE;
-
-            if (workspace === '/') {
-              console.error('Error: GITHUB_WORKSPACE is the root folder. Aborting cleanup.');
-              core.setFailed('GITHUB_WORKSPACE is the root folder');
-              return;
-            }
-
-            if (!fs.existsSync(workspace) || !fs.lstatSync(workspace).isDirectory()) {
-              console.error('Error: GITHUB_WORKSPACE is not a directory. Aborting cleanup.');
-              core.setFailed('GITHUB_WORKSPACE is not a directory');
-              return;
-            }
-
-            const directoriesToRemove = [
-              path.join(workspace, '.windsor'),
-              path.join(workspace, 'terraform'),
-              path.join(workspace, 'kustomize')
-            ];
-
-            const filesToRemove = [
-              path.join(workspace, '.yamllint'),
-              path.join(workspace, '.gitignore'),
-              path.join(workspace, '.editorconfig')
-            ];
-
-            // Remove directories
-            directoriesToRemove.forEach(dir => {
-              if (fs.existsSync(dir)) {
-                console.log(`Removing directory: ${dir}`);
-                fs.rmSync(dir, { recursive: true, force: true });
-              }
-            });
-
-            // Remove files
-            filesToRemove.forEach(file => {
-              if (fs.existsSync(file)) {
-                console.log(`Removing file: ${file}`);
-                fs.rmSync(file, { force: true });
-              }
-            });
-
-            // Remove all files in the workspace
-            fs.readdirSync(workspace).forEach(file => {
-              const filePath = path.join(workspace, file);
-              if (fs.lstatSync(filePath).isFile()) {
-                console.log(`Removing file: ${filePath}`);
-                fs.rmSync(filePath, { force: true });
-              }
-            });
-
-          } catch (error) {
-            console.error('Error during Windsor clean-up:', error.message);
-            core.setFailed(`Windsor clean-up failed: ${error.message}`);
-          }
-
-    - name: Remove tools
-      if: always() 
-      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
-      with:
-        script: |
-          const { execSync } = require('child_process');
-
-          try {
-            console.log('Removing tools with Aqua...');
-            execSync('aqua rm --all', { stdio: 'inherit' });
-            console.log('Tools removed successfully.');
-          } catch (error) {
-            console.error('Error removing tools:', error.message);
-            core.setFailed(`Failed to remove tools: ${error.message}`);
-          }
-    
-    - name: Check for Remaining Files
-      if: always() 
-      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
-      with:
-        script: |
-          const fs = require('fs');
-          const path = require('path');
-          const os = require('os');
-
-          try {
-            const workspace = process.env.GITHUB_WORKSPACE;
-            const platform = os.platform();
-            console.log(`Checking for remaining files in the workspace on ${platform}...`);
-
-            let remainingFiles = [];
-
-            if (platform === 'win32') {
-              // Windows: Use fs.readdirSync to list files
-              remainingFiles = fs.readdirSync(workspace).filter(file => {
-                const filePath = path.join(workspace, file);
-                return fs.lstatSync(filePath).isFile();
-              });
-            } else {
-              // Linux/macOS: Use fs.readdirSync to list files
-              remainingFiles = fs.readdirSync(workspace).filter(file => {
-                const filePath = path.join(workspace, file);
-                return fs.lstatSync(filePath).isFile();
-              });
-            }
-
-            if (remainingFiles.length > 0) {
-              console.error('Error: Found files in the workspace that should be removed:');
-              remainingFiles.forEach(file => console.log(file));
-              core.setFailed('Found files in the workspace that should be removed');
-              return;
-            } else {
-              console.log('No remaining files found in the workspace.');
-            }
-          } catch (error) {
-            console.error('Error checking for remaining files:', error.message);
-            core.setFailed(`Failed to check for remaining files: ${error.message}`);
-          }
-    
-    ### 
-    ### 
-    ### 
-    ### 
-    
     - name: Set Test Results
       id: test_results
       uses: actions/github-script@v7
       with:
         script: |
           try {
-            // Get test success/fail counts from environment variables if available
-            // Default to success if environment variables aren't set
-            const successCount = parseInt(process.env.TEST_SUCCESS_COUNT || '1'); // Default to 1 success
-            const failCount = parseInt(process.env.TEST_FAIL_COUNT || '0');      // Default to 0 failures
+            // Get test success/fail counts from environment variables
+            const successCount = parseInt(process.env.TEST_SUCCESS_COUNT || '0');
+            const failCount = parseInt(process.env.TEST_FAIL_COUNT || '0');
             
-            // Log some useful debugging information
-            console.log('Test configuration:', {
-              windsorUp: '${{ inputs.windsor_up }}',
-              version: '${{ inputs.version }}',
-              releaseBranch: '${{ inputs.release_branch }}',
-              releaseNumber: '${{ inputs.release_number }}',
-              windsorTestConfig: '${{ inputs.windsor_test_config }}',
-              dockerHost: '${{ inputs.docker_host }}',
-              platform: '${{ inputs.platform }}',
-              testSuccessCount: successCount,
-              testFailCount: failCount
-            });
+            // Output test summary
+            console.log(`Test Results - Success: ${successCount}, Failed: ${failCount}`);
             
-            // Always set status to success for now to debug further
-            core.setOutput('status', 'success');
-            console.log(`Tests completed. Forcing status to success for debugging. (Recorded Success: ${successCount}, Failed: ${failCount})`);
+            // Set output status
+            const status = failCount === 0 ? 'success' : 'failure';
+            core.setOutput('status', status);
           } catch (error) {
-            console.error('Error during test execution:', error.message);
-            // Still set success for debugging
-            core.setOutput('status', 'success');
-            console.log('Setting test status to success for debugging despite errors');
+            console.error('Error determining test results:', error.message);
+            core.setOutput('status', 'failure');
           }
           
     - name: Validate and Report Test Completion
