@@ -1,0 +1,271 @@
+name: 'Dispatch Build Artifacts'
+description: 'Dispatches the build artifacts workflow'
+inputs:
+  release:
+    description: 'Release Branch: [release-latest, release-x.y.z]'
+    required: false
+    default: 'release-latest'
+  target_repo_owner:
+    description: 'Repository Owner'
+    required: true
+  target_repo_name:
+    description: 'Repository Name'
+    required: true
+  test_repo_owner:
+    description: 'Test Repository Owner'
+    required: true
+  test_repo_name:
+    description: 'Test Repository Name'
+    required: true
+  token:
+    description: 'GitHub Token'
+    required: true
+
+permissions:
+  contents: read
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Print Parameters
+      run: |
+        echo "----------------------------------------"
+        echo "Build Artifacts Parameters"
+        echo "----------------------------------------"
+        echo "Repo Owner: ${{ inputs.repo_owner }}"
+        echo "Repo Name: ${{ inputs.repo_name }}"
+        echo "Release: ${{ inputs.release }}"
+        echo "----------------------------------------"
+      shell: bash
+
+    - name: Validate Release Input
+      id: validate_release
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          try {
+            const releaseInput = '${{ inputs.release }}';
+            const validFormat = /^(release-latest|release-[0-9]+\.[0-9]+\.[0-9]+|v?[0-9]+\.[0-9]+\.[0-9]+|[0-9]+\.[0-9]+\.[0-9]+)$/;
+
+            if (!validFormat.test(releaseInput)) {
+              console.log("Release input:", releaseInput);
+              throw new Error("Invalid release input. Please provide 'release-latest' or a version in the format 'release-x.y.z', 'v0.1.0', or '0.1.0'.");
+            }
+            console.log("Validated release input value:", releaseInput);
+            core.setOutput('validated', 'true');
+          } catch (error) {
+            core.setFailed(`Release validation failed: ${error.message}`);
+            throw error;
+          }
+
+    - name: Determine Release Branch
+      id: determine_release
+      uses: ./.github/actions/determine-release-branch
+      with:
+        version: ${{ inputs.version }}
+        release: ${{ inputs.release }}
+        repo_owner: ${{ inputs.repo_owner }}
+        repo_name: ${{ inputs.repo_name }}
+        token: ${{ inputs.token }}
+
+    - name: Display Release Info
+      run: |
+        echo "----------------------------------------"
+        echo "Release Information"
+        echo "----------------------------------------"
+        echo "Release Branch: ${{ env.RELEASE_BRANCH }}"
+        echo "Release Number: ${{ env.RELEASE_NUMBER }}"
+        echo "Version: ${{ env.VERSION }}"
+        echo "----------------------------------------"
+      shell: bash
+
+    - name: Dispatch Build Artifacts Workflow
+      id: dispatch_workflow
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          try {
+            console.log('Dispatching Build Artifacts Workflow');
+            
+            const releaseInfo = {
+              releaseBranch: process.env.RELEASE_BRANCH || '${{ steps.determine_release.outputs.release_branch }}',
+              releaseNumber: process.env.RELEASE_NUMBER || '${{ steps.determine_release.outputs.release_number }}',
+              version: process.env.VERSION || '${{ steps.determine_release.outputs.version }}'
+            };
+            
+            console.log('Using release information:');
+            console.log(`- Release Branch: ${releaseInfo.releaseBranch}`);
+            console.log(`- Release Number: ${releaseInfo.releaseNumber}`);
+            console.log(`- Version: ${releaseInfo.version}`);
+
+            // Create workflow_dispatch event
+            const response = await github.rest.actions.createWorkflowDispatch({
+              owner: '${{ inputs.test_repo_owner }}',
+              repo: '${{ inputs.test_repo_name }}',
+              workflow_id: 'build-artifacts.yaml',
+              ref: 'main',
+              inputs: {
+                repo_owner: '${{ inputs.target_repo_owner }}',
+                repo_name: '${{ inputs.target_repo_name }}',
+                release: releaseInfo.releaseBranch,
+                token: '${{ inputs.token }}'
+              }
+            });
+            
+            console.log("Successfully dispatched build artifacts workflow");
+            
+            // Store the timestamp for finding the run later
+            const dispatchTime = new Date().toISOString();
+            core.exportVariable('DISPATCH_TIME', dispatchTime);
+            core.setOutput('dispatch_time', dispatchTime);
+            
+          } catch (error) {
+            console.error("Error dispatching workflow:", error.message);
+            core.setFailed(`Failed to dispatch workflow: ${error.message}`);
+            throw error;
+          }
+
+    - name: List Available Workflows
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          try {
+            const workflows = await github.rest.actions.listRepoWorkflows({
+              owner: '${{ inputs.repo_owner }}',
+              repo: '${{ inputs.repo_name }}'
+            });
+            console.log("Available Workflows:");
+            workflows.data.workflows.forEach(wf => {
+              console.log(`- ${wf.name} (ID: ${wf.id}): ${wf.path}`);
+            });
+          } catch (error) {
+            console.error("Error listing workflows:", error.message);
+            // Don't fail the workflow if this step fails
+            console.log("Continuing despite error listing workflows");
+          }
+          
+    - name: Wait for Workflow Completion
+      id: wait_for_workflow
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          try {
+            const MAX_TIME = 600; // Maximum wait time in seconds
+            const INTERVAL = 10;  // Check interval in seconds
+            const targetOwner = '${{ inputs.repo_owner }}';
+            const targetRepo = '${{ inputs.repo_name }}';
+            const dispatchTime = process.env.DISPATCH_TIME;
+            
+            console.log(`Looking for workflow runs created after ${dispatchTime}`);
+            console.log(`Waiting up to ${MAX_TIME} seconds for workflow to complete`);
+            
+            const startTime = Date.now();
+            let workflowRun = null;
+            
+            // Find the workflow run
+            while ((Date.now() - startTime) < MAX_TIME * 1000) {
+              console.log("Checking for recently created workflow runs...");
+              
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: targetOwner,
+                repo: targetRepo,
+                workflow_id: 'build-artifacts.yaml',
+                created: `>=${dispatchTime.split('.')[0]}Z`,
+                per_page: 5
+              });
+              
+              if (runs.data.workflow_runs.length > 0) {
+                // Sort by created_at in descending order to get the most recent
+                const sortedRuns = runs.data.workflow_runs.sort((a, b) => 
+                  new Date(b.created_at) - new Date(a.created_at)
+                );
+                
+                workflowRun = sortedRuns[0];
+                console.log(`Found workflow run: #${workflowRun.run_number} (${workflowRun.id})`);
+                console.log(`Run URL: ${workflowRun.html_url}`);
+                break;
+              }
+              
+              console.log("No matching workflow runs found yet, waiting...");
+              await new Promise(resolve => setTimeout(resolve, INTERVAL * 1000));
+            }
+            
+            if (!workflowRun) {
+              console.error("Timeout: Could not find the dispatched workflow run");
+              core.setOutput('status', 'not_found');
+              core.setFailed("Timeout: Could not find the dispatched workflow run");
+              return;
+            }
+            
+            // Monitor the run until completion
+            const runId = workflowRun.id;
+            while ((Date.now() - startTime) < MAX_TIME * 1000) {
+              const runData = await github.rest.actions.getWorkflowRun({
+                owner: targetOwner,
+                repo: targetRepo,
+                run_id: runId
+              });
+              
+              console.log(`Run status: ${runData.data.status}, conclusion: ${runData.data.conclusion || 'pending'}`);
+              
+              if (runData.data.status === 'completed') {
+                console.log(`Workflow completed with conclusion: ${runData.data.conclusion}`);
+                core.setOutput('status', runData.data.conclusion);
+                
+                if (runData.data.conclusion === 'success') {
+                  console.log("Integration tests completed successfully");
+                  return;
+                } else {
+                  console.error(`Build artifacts failed with conclusion: ${runData.data.conclusion}`);
+                  core.setFailed(`Build artifacts failed with conclusion: ${runData.data.conclusion}`);
+                  return;
+                }
+              }
+              
+              await new Promise(resolve => setTimeout(resolve, INTERVAL * 1000));
+            }
+            
+            console.error(`Timeout: Workflow did not complete within ${MAX_TIME} seconds.`);
+            core.setOutput('status', 'timeout');
+            core.setFailed(`Timeout: Workflow did not complete within ${MAX_TIME} seconds.`);
+          } catch (error) {
+            console.error(`Error waiting for workflow completion: ${error.message}`);
+            core.setOutput('status', 'error');
+            core.setFailed(`Error monitoring workflow: ${error.message}`);
+          }
+
+
+
+    # - name: Dispatch Build Artifacts Workflow
+    #   uses: actions/github-script@v7
+    #   with:
+    #     github-token: ${{ inputs.token }}
+    #     script: |
+    #       const owner = '${{ inputs.repo_owner }}';
+    #       const repo = '${{ inputs.repo_name }}';
+    #       const release = '${{ steps.determine_release.outputs.current_release }}';
+    #       const ref = '${{ inputs.release }}';
+
+    #       console.log('Owner:', owner);
+    #       console.log('Repo:', repo);
+    #       console.log('Release:', release); 
+    #       console.log('Ref:', ref);
+    
+    #       await github.rest.repos.createDispatchEvent({
+    #         owner,
+    #         repo,
+    #         event_type: 'dispatch-build-artifacts',
+    #         client_payload: {
+    #           repo_owner: owner,
+    #           repo_name: repo,
+    #           release: release,
+    #           ref: ref
+    #         }
+    #       });

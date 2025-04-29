@@ -1,0 +1,44 @@
+name: 'DispatchBuild Artifacts'
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Release Branch'
+        required: false
+        default: 'release-latest'
+      target_repo_owner:
+        description: 'Test Target Repository Owner'
+        required: true
+        default: 'windsorcli'
+      target_repo_name:
+        description: 'Test Target Repository Name'
+        required: true
+        default: 'cli'
+      test_repo_owner:
+        description: 'Test Repository Owner'
+        required: true
+        default: 'tvangundy'
+      test_repo_name:
+        description: 'Test Repository Name'
+        required: true
+        default: 'bootstrapper'
+
+jobs:
+  build-artifacts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout current branch
+        uses: actions/checkout@v3
+
+      - name: Run Build Artifacts Action
+        uses: ./.github/actions/dispatch-build-artifacts
+        with:
+          release: ${{ inputs.release }}
+          target_repo_owner: ${{ inputs.target_repo_owner }}
+          target_repo_name: ${{ inputs.target_repo_name }}
+          test_repo_owner: ${{ inputs.test_repo_owner }}
+          test_repo_name: ${{ inputs.test_repo_name }}
+          token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}
