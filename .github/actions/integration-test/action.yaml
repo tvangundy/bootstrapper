@@ -99,6 +99,25 @@ runs:
         "$Env:LOCALAPPDATA\aquaproj-aqua\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       shell: powershell
       
+    - name: Install YQ on Windows
+      if: inputs.platform == 'win32'
+      run: |
+        Write-Host "Installing yq on Windows..."
+        $yqVersion = "v4.35.1"
+        $yqUrl = "https://github.com/mikefarah/yq/releases/download/${yqVersion}/yq_windows_amd64.exe"
+        $yqPath = "$env:USERPROFILE\yq.exe"
+        
+        # Download yq
+        Invoke-WebRequest -Uri $yqUrl -OutFile $yqPath
+        
+        # Add yq to the PATH
+        $env:Path = "$env:USERPROFILE;$env:Path"
+        "$env:USERPROFILE" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        
+        # Verify yq was installed
+        yq --version
+      shell: powershell
+
     - name: Print Aqua Path
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
       with:
@@ -538,12 +557,42 @@ runs:
         $testConfig = '${{ inputs.windsor_test_config }}'
         $testConfigPath = if ([System.IO.Path]::IsPathRooted($testConfig)) { $testConfig } else { Join-Path $env:GITHUB_WORKSPACE $testConfig }
 
+        Write-Host "Test configuration path: $testConfigPath"
+        
+        # Check if the test config file exists
+        if (-not (Test-Path $testConfigPath)) {
+            Write-Host "Error: Test configuration file not found: $testConfigPath"
+            exit 1
+        }
+
         # Read the tests-list from the windsor_test_config file using yq
         try {
-            $tests_list_json = & yq eval -o=json $testConfigPath
-            $tests_list = $tests_list_json | ConvertFrom-Json
+            # Use proper yq syntax for Windows
+            Write-Host "Reading test configuration with yq..."
+            
+            # Use PowerShell to read and parse the file if yq fails
+            try {
+                $tests_list_json = & yq eval '.tests-list' -o=json $testConfigPath
+                $tests_list = $tests_list_json | ConvertFrom-Json
+                Write-Host "Successfully parsed test configuration with yq"
+            }
+            catch {
+                Write-Host "Falling back to direct YAML parsing due to yq error: $_"
+                
+                # Try to install the PowerShell YAML module if yq fails
+                Install-Module -Name powershell-yaml -Force -Scope CurrentUser
+                
+                # Read YAML directly with PowerShell
+                $yamlContent = Get-Content -Path $testConfigPath -Raw
+                $yaml = ConvertFrom-Yaml -Yaml $yamlContent
+                $tests_list = $yaml.'tests-list'
+                
+                if (-not $tests_list) {
+                    throw "Could not find tests-list in YAML content"
+                }
+            }
         } catch {
-            Write-Host "Error reading or parsing YAML file with yq: $_"
+            Write-Host "Error reading or parsing YAML file: $_"
             exit 1
         }
 
@@ -552,13 +601,13 @@ runs:
         Write-Host "========================================="
 
         # Loop through each test entry in the tests-list
-        foreach ($row in $tests_list.'tests-list') {
+        foreach ($row in $tests_list) {
             $path = $row.path
             $type = if ($null -eq $row.type) { 'shell' } else { $row.type }
             $os_list = $row.os
 
             # Check if the current OS is supported for the test
-            if (-not $os_list -or $os_list -contains $env:RUNNER_OS) {
+            if (-not $os_list -or $os_list -contains "win32" -or $os_list -contains "windows") {
                 try {
                     Write-Host "Running $type tests with path = $path"
 
@@ -585,7 +634,7 @@ runs:
                     } else {
                         switch ($type) {
                             'shell' {
-                                bash -c "dos2unix '$path'; bash '$path'"
+                                bash -c "dos2unix '$path' 2>/dev/null || true; bash '$path'"
                             }
                             'bats' {
                                 Write-Host "Skipping: bats '$path'"
@@ -597,9 +646,10 @@ runs:
                     }
                 } catch {
                     Write-Host "Error running command for $type tests: $_"
+                    exit 1
                 }
             } else {
-                Write-Host "Skipping $type test at $path for OS $env:RUNNER_OS"
+                Write-Host "Skipping $type test at $path for OS win32"
             }
         }
       shell: powershell
