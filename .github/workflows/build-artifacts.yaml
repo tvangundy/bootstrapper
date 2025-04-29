@@ -37,7 +37,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-            
+        with:
+          repository: ${{ inputs.repo_owner }}/${{ inputs.repo_name }}
+          token: ${{ inputs.token != '' && inputs.token || secrets.WINDSORCLI_RELEASE_TOKEN }}
       - name: Print out the inputs
         run: |
           echo "Debugging inputs:"
