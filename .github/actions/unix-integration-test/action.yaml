@@ -56,17 +56,23 @@ runs:
         echo "----------------------------------------"
       shell: bash
 
-    # - name: Fix permissions for Linux runners
-    #   run: |
-    #     sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-    #     sudo chmod -R 755 $GITHUB_WORKSPACE
-    #   shell: bash
+    - name: Fix permissions for Linux runners
+      run: |
+        OS_TYPE=$(uname -s | tr '[:upper:]' '[:lower:]')
+        if [ "$OS_TYPE" == "linux" ]; then
+          echo "Running on Linux, fixing permissions..."
+          sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+          sudo chmod -R 755 $GITHUB_WORKSPACE
+        else
+          echo "Not running on Linux, skipping permission fix."
+        fi
+      shell: bash
       
     - name: Install Aqua
       env: 
         AQUA_DISABLE_COSIGN: true
         AQUA_DISABLE_SLSA: true
-        AQUA_LOG_LEVEL: debug
+        AQUA_LOG_LEVEL: info
       uses: aquaproj/aqua-installer@e2d0136abcf70b7a2f6f505720640750557c4b33 # v3.1.1
       with:
         aqua_version: v2.43.1
