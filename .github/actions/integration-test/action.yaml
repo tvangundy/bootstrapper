@@ -749,6 +749,7 @@ runs:
                 
                 # Run the bats test with better error handling
                 set -o pipefail
+                echo "Running: bats \"$bats_file\""
                 bats "$bats_file" 2>&1 | tee bats_output.log
                 bats_exit_code=$?
                 set +o pipefail
@@ -757,6 +758,8 @@ runs:
                 
                 if [ $bats_exit_code -ne 0 ]; then
                   echo "Error: Bats test failed: $bats_file"
+                  echo "The following assertions failed:"
+                  grep -A 2 "not ok" bats_output.log || echo "No detailed failure information available"
                   test_success=false
                 else
                   echo "Bats test $bats_file passed successfully"

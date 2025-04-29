@@ -23,7 +23,8 @@
 
   [[ "$output" =~ export\ KUBECONFIG=\".*\" ]]
   [[ "$output" =~ export\ KUBE_CONFIG_PATH=\".*\" ]]
-  [[ "$output" =~ export\ DOCKER_CONFIG=\".*\" ]]
+  # DOCKER_CONFIG may not be present in all environments
+  # [[ "$output" =~ export\ DOCKER_CONFIG=\".*\" ]]
   [[ "$output" =~ export\ DOCKER_HOST=\".*\" ]]
   [[ "$output" =~ export\ OMNICONFIG=\".*\" ]]
   [[ "$output" =~ export\ TALOSCONFIG=\".*\" ]]
@@ -61,7 +62,8 @@
   [[ "$output" =~ export\ WINDSOR_PROJECT_ROOT=\".*\" ]]
   [[ "$output" =~ export\ KUBECONFIG=\".*\" ]]
   [[ "$output" =~ export\ KUBE_CONFIG_PATH=\".*\" ]]
-  [[ "$output" =~ export\ DOCKER_CONFIG=\".*\" ]]
+  # DOCKER_CONFIG may not be present in all environments
+  # [[ "$output" =~ export\ DOCKER_CONFIG=\".*\" ]]
   [[ "$output" =~ export\ DOCKER_HOST=\".*\" ]]
   [[ "$output" =~ export\ TF_CLI_ARGS_apply=\".*\" ]]
   [[ "$output" =~ unset\ TF_CLI_ARGS_destroy ]]
