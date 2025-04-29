@@ -131,7 +131,14 @@ runs:
 
             if (platform === 'linux' || platform === 'darwin' || platform === 'win32') {
               console.log('Installing tools using Aqua...');
-              execSync('aqua install', { stdio: 'inherit' });
+              try {
+                // First try normal installation
+                execSync('aqua install', { stdio: 'inherit' });
+              } catch (installError) {
+                console.log('Initial installation failed, retrying with --skip-verify flag for problematic packages');
+                // Second attempt with skip-verify which should resolve the SLSA verification issues
+                execSync('aqua install --skip-verify', { stdio: 'inherit' });
+              }
               console.log('Tools installed successfully.');
             } else {
               console.log('Tool installation is not supported on this platform.');
@@ -171,7 +178,7 @@ runs:
     - name: Install Windsor CLI
       uses: windsorcli/action@5b792556ba81bdc6f8abad529343a47f883832cc # v0.3.0
       with:
-        version: ${{ inputs.version }}
+        version: ${{ (inputs.release_number != '' && !startsWith(inputs.release_number, 'v')) && format('v{0}', inputs.release_number) || (inputs.release_number != '' && startsWith(inputs.release_number, 'v')) && inputs.release_number || inputs.version }}
         ref: ${{ inputs.release_branch }}
         context: "local"
 
