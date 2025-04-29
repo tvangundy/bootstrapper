@@ -171,7 +171,7 @@ runs:
     - name: Install Windsor CLI
       uses: windsorcli/action@5b792556ba81bdc6f8abad529343a47f883832cc # v0.3.0
       with:
-        version: ${{ inputs.release_number }}
+        version: ${{ inputs.version }}
         ref: ${{ inputs.release_branch }}
         context: "local"
 

@@ -108,11 +108,17 @@ runs:
               }
             }
 
-            // Extract release number from branch name
-            if (releaseBranch.startsWith('release-')) {
-              releaseNumber = releaseBranch.replace('release-', '');
+            // Extract release number from branch name or version
+            if (version !== '') {
+              // If version is provided, use it to determine release number
+              releaseNumber = version.startsWith('v') ? version.slice(1) : version;
             } else {
-              releaseNumber = releaseBranch;
+              // Otherwise, extract from release branch
+              if (releaseBranch.startsWith('release-')) {
+                releaseNumber = releaseBranch.replace('release-', '');
+              } else {
+                releaseNumber = releaseBranch;
+              }
             }
             
             // Set outputs using core.setOutput
