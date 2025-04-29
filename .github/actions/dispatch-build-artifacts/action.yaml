@@ -75,15 +75,20 @@ runs:
         token: ${{ inputs.token }}
 
     - name: Display Release Info
-      run: |
-        echo "----------------------------------------"
-        echo "Release Information"
-        echo "----------------------------------------"
-        echo "Release Branch: process.env.RELEASE_BRANCH || '${{ steps.determine_release.outputs.release_branch }}"
-        echo "Release Number: process.env.RELEASE_NUMBER || '${{ steps.determine_release.outputs.release_number }}"
-        echo "Version: process.env.VERSION || '${{ steps.determine_release.outputs.version }}"
-        echo "----------------------------------------"
-      shell: bash
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const releaseBranch = '${{ steps.determine_release.outputs.release_branch }}';
+          const releaseNumber = '${{ steps.determine_release.outputs.release_number }}';
+          const version = '${{ steps.determine_release.outputs.version }}';
+          
+          console.log('----------------------------------------');
+          console.log('Release Information');
+          console.log('----------------------------------------');
+          console.log(`Release Branch: ${releaseBranch}`);
+          console.log(`Release Number: ${releaseNumber}`);
+          console.log(`Version: ${version}`);
+          console.log('----------------------------------------');
 
     - name: Dispatch Build Artifacts Workflow
       id: dispatch_workflow
@@ -195,6 +200,32 @@ runs:
               }
               
               throw new Error('Timed out waiting for workflow run to complete');
+            }
+            
+            // Get the dispatched workflow details
+            const targetOwner = '${{ inputs.test_repo_owner }}';
+            const targetRepo = '${{ inputs.test_repo_name }}';
+            const workflowId = 'build-artifacts.yaml';
+            
+            console.log(`Looking for workflow runs in ${targetOwner}/${targetRepo}`);
+            console.log(`Workflow ID: ${workflowId}`);
+            
+            // For dispatched workflows, we monitor the 'main' branch since that's where the dispatch happened
+            const targetBranch = 'main';
+            
+            // Execute the wait function
+            const result = await waitForLatestWorkflowRun(targetOwner, targetRepo, workflowId, targetBranch);
+            
+            // Log and set outputs for the workflow run result
+            console.log(`Workflow run completed with conclusion: ${result.conclusion}`);
+            console.log(`Workflow run URL: ${result.url}`);
+            
+            core.setOutput('workflow_conclusion', result.conclusion);
+            core.setOutput('workflow_url', result.url);
+            
+            // Fail the action if the dispatched workflow failed
+            if (result.conclusion !== 'success') {
+              core.setFailed(`Dispatched workflow completed with status: ${result.conclusion}`);
             }
           } catch (error) {
             console.error("Error waiting for workflow completion:", error.message);
