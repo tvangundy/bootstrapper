@@ -716,11 +716,23 @@ runs:
                     continue
                   fi
                 else
-                  npm install -g bats
+                  # Try sudo first, fall back to local installation if that fails
+                  echo "Installing bats-core with sudo..."
+                  sudo npm install -g bats
                   if [ $? -ne 0 ]; then
-                    echo "Error: Failed to install bats-core" 
-                    ((fail_count++))
-                    continue
+                    echo "Sudo installation failed, trying local installation..."
+                    mkdir -p $HOME/npm-packages
+                    npm config set prefix $HOME/npm-packages
+                    export PATH="$HOME/npm-packages/bin:$PATH"
+                    npm install -g bats
+                    if [ $? -ne 0 ]; then
+                      echo "Error: Failed to install bats-core" 
+                      ((fail_count++))
+                      continue
+                    fi
+                    # Ensure bats is in the PATH
+                    export PATH="$HOME/npm-packages/bin:$PATH"
+                    echo "Added $HOME/npm-packages/bin to PATH"
                   fi
                 fi
               fi
@@ -729,10 +741,25 @@ runs:
               test_success=true
               for bats_file in $bats_files; do
                 echo "Running bats test: $bats_file"
-                bats "$bats_file"
-                if [ $? -ne 0 ]; then
+                echo "Bats file details:"
+                ls -la "$bats_file"
+                echo "Bats file content preview:"
+                head -n 5 "$bats_file"
+                echo "-------------------"
+                
+                # Run the bats test with better error handling
+                set -o pipefail
+                bats "$bats_file" 2>&1 | tee bats_output.log
+                bats_exit_code=$?
+                set +o pipefail
+                
+                echo "Bats test exit code: $bats_exit_code"
+                
+                if [ $bats_exit_code -ne 0 ]; then
                   echo "Error: Bats test failed: $bats_file"
                   test_success=false
+                else
+                  echo "Bats test $bats_file passed successfully"
                 fi
               done
               
@@ -745,9 +772,18 @@ runs:
               chmod +x "$full_path"
               echo "Executing shell test: $full_path"
               
+              # Print test file size and permissions for debugging
+              echo "Test file details:"
+              ls -la "$full_path"
+              echo "Test file content preview:"
+              head -n 5 "$full_path"
+              echo "-------------------"
+              
               # Run the test without error trapping
+              echo "Running bash script directly..."
               bash "$full_path"
               exit_code=$?
+              echo "Test exit code: $exit_code"
               
               if [ $exit_code -ne 0 ]; then
                 echo "Error: Script execution failed with exit code $exit_code"
@@ -775,18 +811,20 @@ runs:
         echo "========================================="
         echo "Success: $success_count"
         echo "Failed:  $fail_count"
+        echo "Test details:"
+        echo "- Total tests attempted: $((success_count + fail_count))"
         
         # Export environment variables for other steps
         echo "TEST_SUCCESS_COUNT=$success_count" >> $GITHUB_ENV
         echo "TEST_FAIL_COUNT=$fail_count" >> $GITHUB_ENV
         
         if [ $fail_count -gt 0 ]; then
-          echo "One or more tests failed!"
+          echo "⚠️ One or more tests failed! Check logs above for details."
           # Set non-zero exit code only when tests actually fail
           exit 1
         fi
         
-        echo "All tests completed successfully!"
+        echo "✅ All tests completed successfully!"
       shell: bash
 
     - name: Run Tests on Windows
