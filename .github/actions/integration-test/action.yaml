@@ -61,10 +61,6 @@ runs:
         echo "----------------------------------------"
       shell: bash
 
-    ### 
-    ### Actual Integration Test
-    ### 
-    ### 
     # - name: Fix permissions for Linux runners
     #   if: always() && inputs.platform == 'linux'
     #   run: |
