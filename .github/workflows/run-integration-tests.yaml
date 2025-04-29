@@ -11,7 +11,7 @@ on:
       windsor_test_config:
         description: 'Windsor test configuration file'
         required: false
-        default: 'ci-self-hosted-tests.yaml'
+        default: 'ci-tests.yaml'
       release_branch:
         description: 'Release Branch (release-1.0.0 or 1.0.0)'
         required: false
