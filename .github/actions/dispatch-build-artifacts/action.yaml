@@ -178,7 +178,7 @@ runs:
               const runs = await github.rest.actions.listWorkflowRuns({
                 owner: targetOwner,
                 repo: targetRepo,
-                workflow_id: 'build-artifacts.yaml',
+                workflow_id: 'Build Artifacts',
                 created: `>=${dispatchTime.split('.')[0]}Z`,
                 per_page: 5
               });
