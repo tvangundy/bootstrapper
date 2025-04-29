@@ -12,6 +12,12 @@ runners:
   
 tests-list:
 
+  # First run the Ubuntu-specific minimal test
+  - path: tests/shell/ubuntu-test.sh
+    type: shell
+    shell: bash
+    os: [linux]
+
   # shell tests for bash and zsh on Linux and macOS
   - path: tests/shell/sample-test.sh
     type: shell
