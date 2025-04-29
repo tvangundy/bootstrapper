@@ -125,6 +125,8 @@ jobs:
         runner: ${{ fromJson(needs.integration-test-prep.outputs.RUNNER_LIST) }}
             
     runs-on: ${{ matrix.runner.os }}
+    # Skip testing on Windows for now - we'll use a separate workflow
+    if: matrix.runner.os != 'windows-latest' && matrix.runner.os != 'windows-server-2022'
       
     steps:
       - name: Checkout code

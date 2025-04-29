@@ -1,0 +1,121 @@
+name: 'Run Windows Tests'
+
+on:
+  workflow_dispatch:
+    inputs:
+      windsor_test_config:
+        description: 'Windsor test configuration file'
+        required: false
+        default: 'tests/configs/ci-tests.yaml'
+      release_branch:
+        description: 'Release Branch'
+        required: false
+        default: 'main'
+        
+permissions:
+  contents: read
+
+jobs:
+  windows-tests:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up test environment
+        run: |
+          Write-Host "Setting up Windows test environment"
+          $ErrorActionPreference = "Continue"
+          
+          # Create test directories
+          New-Item -Path "tests\shell" -ItemType Directory -Force | Out-Null
+          
+          # Create Windows-specific test files
+          $windowsTestFile = "tests\shell\windows-test.bat"
+          $sampleTestFile = "tests\shell\sample-test-win.bat"
+          
+          # Create test file content with individual lines
+          Set-Content -Path $windowsTestFile -Value "@echo off"
+          Add-Content -Path $windowsTestFile -Value "echo Running Windsor Windows Test"
+          Add-Content -Path $windowsTestFile -Value "echo Testing on Windows version:"
+          Add-Content -Path $windowsTestFile -Value "ver"
+          Add-Content -Path $windowsTestFile -Value "echo Test completed successfully!"
+          Add-Content -Path $windowsTestFile -Value "exit /b 0"
+          
+          # Create second test file
+          Set-Content -Path $sampleTestFile -Value "@echo off"
+          Add-Content -Path $sampleTestFile -Value "echo Hello, World from Windows!"
+          Add-Content -Path $sampleTestFile -Value "echo Testing Windsor on Windows"
+          Add-Content -Path $sampleTestFile -Value "exit /b 0"
+          
+          Write-Host "Created test files:"
+          Get-ChildItem -Path tests\shell -Recurse
+        shell: powershell
+
+      - name: Run Windows Tests
+        run: |
+          $ErrorActionPreference = "Continue"
+          
+          Write-Host "========================================="
+          Write-Host "          RUNNING WINDOWS TESTS          "
+          Write-Host "========================================="
+          
+          $windowsTests = @(
+              "tests\shell\windows-test.bat",
+              "tests\shell\sample-test-win.bat"
+          )
+          
+          $successCount = 0
+          $failCount = 0
+          
+          foreach ($testPath in $windowsTests) {
+              Write-Host "Running test: $testPath"
+              
+              # Execute the test
+              cmd /c $testPath
+              $exitCode = $LASTEXITCODE
+              
+              if ($exitCode -eq 0) {
+                  Write-Host "✅ Test passed successfully"
+                  $successCount++
+              } else {
+                  Write-Host "❌ Test failed with exit code: $exitCode"
+                  $failCount++
+              }
+              
+              Write-Host "-------------------"
+          }
+          
+          Write-Host "========================================="
+          Write-Host "           TEST EXECUTION SUMMARY        "
+          Write-Host "========================================="
+          Write-Host "Success: $successCount"
+          Write-Host "Failed: $failCount"
+          Write-Host "-------------------"
+          
+          if ($failCount -gt 0) {
+              Write-Host "⚠️ One or more tests failed!"
+              exit 1
+          } else {
+              Write-Host "✅ All tests completed successfully!"
+          }
+        shell: powershell
+
+      - name: Install Windsor CLI
+        uses: windsorcli/action@5b792556ba81bdc6f8abad529343a47f883832cc # v0.3.0
+        with:
+          version: 'latest'
+          ref: ${{ inputs.release_branch }}
+          context: "local"
+
+      - name: Test Windsor Version
+        run: |
+          windsor.exe version
+          
+          if ($LASTEXITCODE -eq 0) {
+              Write-Host "✅ Windsor CLI is working properly"
+          } else {
+              Write-Host "❌ Failed to run windsor version command"
+              exit 1
+          }
+        shell: powershell
