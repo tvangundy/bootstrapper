@@ -97,6 +97,50 @@ runs:
         "$installPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         Set-Item Env:Path "$Env:LOCALAPPDATA\aquaproj-aqua\bin;$Env:Path"
         "$Env:LOCALAPPDATA\aquaproj-aqua\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        
+        # Create custom aqua config without problematic packages for Windows
+        Write-Host "Creating custom Aqua config file for Windows..."
+        
+        $configLines = @(
+          "# Custom aqua config for Windows without problematic packages",
+          "registries:",
+          "- type: standard",
+          "  ref: v4.87.0",
+          "packages:",
+          "- name: hashicorp/terraform@v1.11.4",
+          "- name: siderolabs/talos@v1.9.5",
+          "- name: siderolabs/omni/omnictl@v0.48.0",
+          "- name: siderolabs/omni/omni@v0.48.0",
+          "- name: kubernetes/kubectl@v1.32.3",
+          "- name: go-task/task@v3.42.1",
+          "- name: golang/go@go1.24.2",
+          "- name: docker/cli@v27.4.1",
+          "- name: docker/compose@v2.34.0",
+          "- name: helm/helm@v3.17.3",
+          "- name: fluxcd/flux2@v2.5.1",
+          "- name: hashicorp/vault@v1.19.1",
+          "- name: derailed/k9s@v0.50.2",
+          "- name: 1password/cli@v2.30.3",
+          "# Skipped problematic packages:",
+          "# - getsops/sops@v3.10.1"
+        )
+        
+        # Backup original aqua.yaml if exists
+        if (Test-Path aqua.yaml) {
+            Copy-Item -Path aqua.yaml -Destination aqua.yaml.bak -Force
+        }
+        
+        # Save custom config
+        $configLines | Out-File -FilePath aqua.yaml -Encoding utf8
+        
+        # Install with custom config
+        Write-Host "Installing Aqua packages with custom config..."
+        aqua install
+        
+        # Restore original config if it existed
+        if (Test-Path aqua.yaml.bak) {
+            Move-Item -Path aqua.yaml.bak -Destination aqua.yaml -Force
+        }
       shell: powershell
       
     - name: Install YQ on Windows
