@@ -21,6 +21,10 @@ tests-list:
     type: shell
     shell: bash
     os: [linux, darwin]
+  - path: tests/shell/linux-debug.sh
+    type: shell
+    shell: bash
+    os: [linux]
   - path: tests/shell/sample-test.sh
     type: shell
     shell: zsh

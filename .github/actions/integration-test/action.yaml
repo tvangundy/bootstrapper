@@ -788,10 +788,27 @@ runs:
         echo "Success: $success_count"
         echo "Failed:  $fail_count"
         
+        # Set GitHub step output variable for test status
+        echo "::set-output name=test_status::$([ $fail_count -eq 0 ] && echo "success" || echo "failure")"
+        
+        # Debug information to help diagnose issues
+        echo "Debug: Current folder contents:"
+        ls -la
+        echo "Debug: GITHUB_WORKSPACE contents:"
+        ls -la $GITHUB_WORKSPACE
+        
+        # Export environment variables that will be available to other steps
+        echo "TEST_SUCCESS_COUNT=$success_count" >> $GITHUB_ENV
+        echo "TEST_FAIL_COUNT=$fail_count" >> $GITHUB_ENV
+        
+        # Don't exit with non-zero when tests succeed
         if [ $fail_count -gt 0 ]; then
           echo "One or more tests failed!"
+          # Only exit with error if there are failures
           exit 1
         fi
+        
+        echo "All tests completed successfully!"
       shell: bash
 
     - name: Run Tests on Windows
@@ -1375,6 +1392,10 @@ runs:
             // This is a placeholder - in a real implementation, this would evaluate test outcomes
             // based on the results of previous test steps
             
+            // Get test success/fail counts from environment variables
+            const successCount = parseInt(process.env.TEST_SUCCESS_COUNT || '0');
+            const failCount = parseInt(process.env.TEST_FAIL_COUNT || '0');
+            
             // Log some useful debugging information
             console.log('Test configuration:', {
               windsorUp: '${{ inputs.windsor_up }}',
@@ -1383,13 +1404,17 @@ runs:
               releaseNumber: '${{ inputs.release_number }}',
               windsorTestConfig: '${{ inputs.windsor_test_config }}',
               dockerHost: '${{ inputs.docker_host }}',
-              platform: '${{ inputs.platform }}'
+              platform: '${{ inputs.platform }}',
+              testSuccessCount: successCount,
+              testFailCount: failCount
             });
             
-            // In a real implementation, we would determine success/failure based on test results
-            // For now, we'll just set success
-            core.setOutput('status', 'success');
-            console.log('Tests completed. Set status to success.');
+            // Determine test status based on fail count
+            const testStatus = failCount > 0 ? 'failure' : 'success';
+            
+            // Set output status
+            core.setOutput('status', testStatus);
+            console.log(`Tests completed. Set status to ${testStatus}. (Success: ${successCount}, Failed: ${failCount})`);
           } catch (error) {
             console.error('Error during test execution:', error.message);
             core.setOutput('status', 'failure');
