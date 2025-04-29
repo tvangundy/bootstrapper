@@ -1,0 +1,136 @@
+name: 'Determine Release Branch'
+description: 'Determines the release branch from a repository based on version or release input'
+inputs:
+    version:
+      description: 'Version in semantic format (e.g., v1.0.0)'
+      required: false
+      default: ''
+    release:
+      description: 'Release branch name (e.g., release-latest, release-1.0.0, 1.0.0)'
+      required: false
+      default: ''
+    repo_owner:
+      description: 'Repository owner to check for release branches'
+      required: false
+      default: 'windsorcli'
+    repo_name:
+      description: 'Repository name to check for release branches'
+      required: false
+      default: 'cli'
+    token:
+      description: 'GitHub token for API authentication and permissions'
+      required: true
+
+outputs:
+  VERSION:
+    description: 'Determined version in semantic format'
+    value: ${{ steps.determine_release.outputs.version }}
+  RELEASE_NUMBER:
+    description: 'Release number extracted from release branch'
+    value: ${{ steps.determine_release.outputs.release_number }}
+  RELEASE_BRANCH:
+    description: 'Determined release branch name'
+    value: ${{ steps.determine_release.outputs.release_branch }}
+
+permissions:
+  contents: read
+
+runs:
+  using: 'composite'
+
+  steps:      
+    - name: Determine Release Branch
+      id: determine_release
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          try {
+            const releaseInput = '${{ inputs.release }}';
+            const versionInput = '${{ inputs.version }}';
+            const validFormat = /^(release-latest|release-[0-9]+\.[0-9]+\.[0-9]+|v?[0-9]+\.[0-9]+\.[0-9]+|[0-9]+\.[0-9]+\.[0-9]+)$/;
+
+            // Validate input if provided
+            if (releaseInput && !validFormat.test(releaseInput)) {
+              throw new Error(`Invalid release format: ${releaseInput}. Expected 'release-latest', 'release-x.y.z', 'vx.y.z', or 'x.y.z'.`);
+            }
+
+            let version = '';
+            let releaseBranch = '';
+            let releaseNumber = '';
+
+            console.log(`Inputs - Version: "${versionInput}", Release: "${releaseInput}"`);
+
+            if (versionInput !== '') {
+              // If version is provided, use it
+              version = versionInput;
+              console.log(`Using provided version: ${version}`);
+            } else {
+              if (releaseInput === 'release-latest' || releaseInput === '') {
+                // Find latest release branch from repository
+                console.log(`Finding latest release branch from ${{ inputs.repo_owner }}/${{ inputs.repo_name }}`);
+                
+                const { data: branches } = await github.rest.repos.listBranches({
+                  owner: '${{ inputs.repo_owner }}',
+                  repo: '${{ inputs.repo_name }}',
+                });
+
+                let releaseBranches = branches
+                  .map(branch => branch.name)
+                  .filter(name => name.startsWith('release-'))
+                  .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+                console.log(`Found ${releaseBranches.length} release branches`);
+                
+                // Filter to only include properly formatted release branches
+                const validReleaseBranchFormat = /^release-[0-9]+\.[0-9]+\.[0-9]+$/;
+                const filteredReleaseBranches = releaseBranches.filter(branch => validReleaseBranchFormat.test(branch));
+                
+                if (filteredReleaseBranches.length !== releaseBranches.length) {
+                  console.log(`Filtered out ${releaseBranches.length - filteredReleaseBranches.length} invalid release branches`);
+                }
+                
+                releaseBranches = filteredReleaseBranches;
+
+                if (releaseBranches.length === 0) {
+                  console.log('No valid release branches found, using main branch');
+                  releaseBranch = 'main';
+                } else {
+                  // Get the latest release branch (last after sorting)
+                  releaseBranch = releaseBranches.pop();
+                  console.log(`Found latest release branch: ${releaseBranch}`);
+                }
+              } else {
+                // Use the provided release input
+                releaseBranch = releaseInput;
+                version = '';
+                console.log(`Using provided release: ${releaseBranch}`);
+              }
+            }
+
+            // Extract release number from branch name
+            if (releaseBranch.startsWith('release-')) {
+              releaseNumber = releaseBranch.replace('release-', '');
+            } else {
+              releaseNumber = releaseBranch;
+            }
+            
+            // Set outputs using core.setOutput
+            core.setOutput('version', version);
+            core.setOutput('release_number', releaseNumber);
+            core.setOutput('release_branch', releaseBranch);
+            
+            // Export environment variables in UPPERCASE following best practices
+            core.exportVariable('VERSION', version);
+            core.exportVariable('RELEASE_NUMBER', releaseNumber);
+            core.exportVariable('RELEASE_BRANCH', releaseBranch);
+
+            console.log('Result:');
+            console.log(`- Version: ${version}`);
+            console.log(`- Release Number: ${releaseNumber}`);
+            console.log(`- Release Branch: ${releaseBranch}`);
+          } catch (error) {
+            console.error(`Error determining release branch: ${error.message}`);
+            core.setFailed(`Failed to determine release branch: ${error.message}`);
+            throw error;
+          }
