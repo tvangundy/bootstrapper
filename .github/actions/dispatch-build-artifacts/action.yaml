@@ -139,8 +139,8 @@ runs:
         script: |
           try {
             const workflows = await github.rest.actions.listRepoWorkflows({
-              owner: '${{ inputs.repo_owner }}',
-              repo: '${{ inputs.repo_name }}'
+              owner: '${{ inputs.target_repo_owner }}',
+              repo: '${{ inputs.target_repo_name }}'
             });
             console.log("Available Workflows:");
             workflows.data.workflows.forEach(wf => {
@@ -161,8 +161,8 @@ runs:
           try {
             const MAX_TIME = 600; // Maximum wait time in seconds
             const INTERVAL = 10;  // Check interval in seconds
-            const targetOwner = '${{ inputs.repo_owner }}';
-            const targetRepo = '${{ inputs.repo_name }}';
+            const targetOwner = '${{ inputs.target_repo_owner }}';
+            const targetRepo = '${{ inputs.target_repo_name }}';
             const dispatchTime = process.env.DISPATCH_TIME;
             
             console.log(`Looking for workflow runs created after ${dispatchTime}`);
@@ -250,8 +250,8 @@ runs:
     #   with:
     #     github-token: ${{ inputs.token }}
     #     script: |
-    #       const owner = '${{ inputs.repo_owner }}';
-    #       const repo = '${{ inputs.repo_name }}';
+    #       const owner = '${{ inputs.target_repo_owner }}';
+    #       const repo = '${{ inputs.target_repo_name }}';
     #       const release = '${{ steps.determine_release.outputs.current_release }}';
     #       const ref = '${{ inputs.release }}';
 
