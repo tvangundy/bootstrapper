@@ -904,24 +904,26 @@ runs:
                     New-Item -ItemType Directory -Path $testDir -Force | Out-Null
                 }
                 
-                # Create a minimal test file
+                # Create a minimal test file - using echo instead of heredoc
                 if ($testPath -eq "tests\shell\windows-test.bat") {
-                    @"
-@echo off
-echo Running Windsor Windows Test
-echo Testing on Windows version:
-ver
-echo Test completed successfully!
-exit /b 0
-"@ | Out-File -FilePath $fullPath -Encoding ASCII
+                    $content = @(
+                        "@echo off",
+                        "echo Running Windsor Windows Test",
+                        "echo Testing on Windows version:",
+                        "ver",
+                        "echo Test completed successfully!",
+                        "exit /b 0"
+                    )
+                    $content | Out-File -FilePath $fullPath -Encoding ASCII
                 }
                 elseif ($testPath -eq "tests\shell\sample-test-win.bat") {
-                    @"
-@echo off
-echo Hello, World from Windows!
-echo Testing Windsor on Windows
-exit /b 0
-"@ | Out-File -FilePath $fullPath -Encoding ASCII
+                    $content = @(
+                        "@echo off",
+                        "echo Hello, World from Windows!",
+                        "echo Testing Windsor on Windows",
+                        "exit /b 0"
+                    )
+                    $content | Out-File -FilePath $fullPath -Encoding ASCII
                 }
                 
                 if (Test-Path $fullPath) {
