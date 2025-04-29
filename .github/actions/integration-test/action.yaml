@@ -630,12 +630,12 @@ runs:
         docker system prune -a -f
       shell: powershell
   
-    - name: Fix permissions for Linux runners
-      if: always() && inputs.platform == 'linux'
-      run: |
-        sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-        sudo chmod -R 755 $GITHUB_WORKSPACE
-      shell: bash
+    # - name: Fix permissions for Linux runners
+    #   if: always() && inputs.platform == 'linux'
+    #   run: |
+    #     sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+    #     sudo chmod -R 755 $GITHUB_WORKSPACE
+    #   shell: bash
 
     - name: Windsor Clean
       if: always() 
