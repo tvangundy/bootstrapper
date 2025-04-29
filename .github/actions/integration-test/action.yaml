@@ -764,10 +764,9 @@ runs:
                 continue
               fi
               
+              # If we got here, the test was successful
               ((success_count++))
               echo "Test executed successfully"
-            else
-              echo "Skipping $type test at $path for OS $current_os"
             fi
           else
             echo "Skipping $type test at $path for OS $current_os"
@@ -1083,7 +1082,7 @@ runs:
                     }
                     
                     $successCount++
-                    Write-Host "Test executed successfully"
+                    echo "Test executed successfully"
                 } catch {
                     Write-Host "Error running test: $_"
                     $failCount++
