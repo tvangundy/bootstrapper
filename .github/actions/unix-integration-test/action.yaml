@@ -56,11 +56,11 @@ runs:
         echo "----------------------------------------"
       shell: bash
 
-    - name: Fix permissions for Linux runners
-      run: |
-        sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-        sudo chmod -R 755 $GITHUB_WORKSPACE
-      shell: bash
+    # - name: Fix permissions for Linux runners
+    #   run: |
+    #     sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+    #     sudo chmod -R 755 $GITHUB_WORKSPACE
+    #   shell: bash
       
     - name: Install Aqua
       env: 
