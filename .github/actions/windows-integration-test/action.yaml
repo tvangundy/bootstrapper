@@ -384,16 +384,110 @@ runs:
         # Install PowerShell-YAML module if not already installed
         if (-not (Get-Module -ListAvailable -Name PowerShell-YAML)) {
           Write-Host "Installing PowerShell-YAML module..."
-          Install-Module -Name PowerShell-YAML -Force -Scope CurrentUser
+          
+          # First, ensure NuGet provider is installed and up to date
+          try {
+            Write-Host "Installing/updating NuGet provider..."
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser
+          } catch {
+            Write-Host "Failed to install NuGet provider: $_"
+            Write-Host "Trying alternative installation method..."
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            Register-PSRepository -Default -ErrorAction SilentlyContinue
+            Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+          }
+          
+          # Try to install the module with increased verbosity
+          try {
+            Install-Module -Name PowerShell-YAML -Force -Scope CurrentUser -Verbose
+            Write-Host "PowerShell-YAML module installed successfully."
+          } catch {
+            Write-Host "Error installing PowerShell-YAML module: $_"
+            Write-Host "Will try to use alternative YAML parsing..."
+          }
+        } else {
+          Write-Host "PowerShell-YAML module already installed."
         }
         
-        # Import PowerShell-YAML module
-        Import-Module PowerShell-YAML
+        # Import the module if available, or use alternative YAML parsing
+        $yamlModuleAvailable = $false
+        try {
+          Import-Module PowerShell-YAML -ErrorAction Stop
+          $yamlModuleAvailable = $true
+          Write-Host "PowerShell-YAML module imported successfully."
+        } catch {
+          Write-Host "Failed to import PowerShell-YAML module: $_"
+          Write-Host "Will use alternative YAML parsing method."
+        }
         
         try {
           # Read and parse YAML file
           $yamlContent = Get-Content -Path $testConfigPath -Raw
-          $config = ConvertFrom-Yaml $yamlContent
+          
+          # Use appropriate method to parse YAML content
+          if ($yamlModuleAvailable) {
+            $config = ConvertFrom-Yaml $yamlContent
+          } else {
+            # Alternative YAML parsing for simple test configs
+            Write-Host "Using alternative YAML parsing for tests-list section"
+            $config = @{ 'tests-list' = @() }
+            
+            # Simple parser for YAML test list entries
+            $inTestsList = $false
+            $currentTest = $null
+            
+            foreach ($line in (Get-Content -Path $testConfigPath)) {
+              $line = $line.Trim()
+              
+              # Check for tests-list section
+              if ($line -eq "tests-list:") {
+                $inTestsList = $true
+                continue
+              }
+              
+              if (-not $inTestsList) { continue }
+              
+              # Check for new test item
+              if ($line -match "^-\s*(.*)") {
+                # Save previous test if exists
+                if ($null -ne $currentTest) {
+                  $config.'tests-list' += $currentTest
+                }
+                
+                # Create new test object
+                $currentTest = @{ 'os' = @() }
+                
+                # Parse inline properties if any
+                $property = $Matches[1].Trim()
+                if ($property -match "^(\w+):\s*(.+)$") {
+                  $propName = $Matches[1]
+                  $propValue = $Matches[2]
+                  $currentTest[$propName] = $propValue
+                }
+                
+                continue
+              }
+              
+              # Parse property in existing test
+              if ($null -ne $currentTest -and $line -match "^(\w+):\s*(.+)$") {
+                $propName = $Matches[1]
+                $propValue = $Matches[2]
+                
+                # Handle OS array
+                if ($propName -eq "os" -and $propValue -match "^\[(.*)\]$") {
+                  $osList = $Matches[1] -split ","
+                  $currentTest['os'] = $osList | ForEach-Object { $_.Trim() }
+                } else {
+                  $currentTest[$propName] = $propValue
+                }
+              }
+            }
+            
+            # Add last test
+            if ($null -ne $currentTest) {
+              $config.'tests-list' += $currentTest
+            }
+          }
           
           # Check if tests-list section exists
           if (-not $config.ContainsKey('tests-list') -or $config.'tests-list'.Count -eq 0) {
