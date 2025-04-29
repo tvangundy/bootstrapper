@@ -17,8 +17,8 @@ on:
         default: 'release-latest'
       token:
         description: 'Token'
-        required: true
-
+        required: false
+        default: ''
 permissions:
   contents: write
 
