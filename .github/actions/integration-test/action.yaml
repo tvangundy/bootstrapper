@@ -851,168 +851,71 @@ runs:
             exit 1
         }
 
-        # Simple YAML parsing for tests-list section
+        # Direct YAML file parsing without relying on yq
         try {
-            Write-Host "Reading test configuration file directly..."
-            
-            # Read the entire file content
+            Write-Host "Reading test configuration file..."
             $yamlContent = Get-Content -Path $testConfigPath -Raw
             
-            # First check if tests-list section exists at all
-            if ($yamlContent -notmatch "tests-list:") {
-                Write-Host "Error: tests-list section not found in YAML file"
+            # Parse the YAML manually to extract tests
+            $testsSection = $null
+            
+            # Find the tests-list section
+            if ($yamlContent -match "tests-list:(\r?\n)(?<TestsSection>(\s+-\s+.*(\r?\n|\z))+)") {
+                $testsSection = $matches["TestsSection"]
+            } else {
+                Write-Host "Error: Could not find tests-list section in YAML file"
                 exit 1
             }
             
-            # Process line by line for more reliable extraction
-            $inTestsSection = $false
-            $testIndent = $null
+            # Process each test item
             $tests = @()
-            $currentTestPath = $null
-            $currentTestType = "shell"
-            $currentTestShell = "bash"
-            $currentTestOs = $null
-            $inTest = $false
-            $collectingArray = $false
-            $arrayProperty = $null
-            $arrayValue = $null
+            $testLines = $testsSection -split "\r?\n"
+            $currentTest = $null
             
-            # Process line by line
-            foreach ($line in ($yamlContent -split "`n")) {
-                # Check for tests-list section start
-                if ($line -match "^\s*tests-list:\s*$") {
-                    $inTestsSection = $true
-                    continue
-                }
-                
-                # Skip if not in tests-list section
-                if (-not $inTestsSection) {
-                    continue
-                }
-                
+            foreach ($line in $testLines) {
                 # Skip empty lines
                 if ([string]::IsNullOrWhiteSpace($line)) {
                     continue
                 }
                 
-                # Check for section end
-                if ($testIndent -and $line -match "^(\s{0,$($testIndent.Length-1)})[^\s]" -and $line -notmatch "^\s*-") {
-                    $inTestsSection = $false
-                    break
-                }
-                
-                # Detect test item start
-                if ($line -match "^(\s*)-\s") {
-                    $lineIndent = $matches[1]
-                    
-                    # First test item - determine indent level
-                    if (-not $testIndent) {
-                        $testIndent = $lineIndent
-                    }
-                    
+                # New test item starts with a dash
+                if ($line -match "^\s*-\s+path:\s*(.+)$") {
                     # Save previous test if exists
-                    if ($currentTestPath) {
-                        $tests += @{
-                            path = $currentTestPath
-                            type = $currentTestType
-                            shell = $currentTestShell
-                            os = $currentTestOs
-                        }
+                    if ($currentTest) {
+                        $tests += $currentTest
                     }
                     
-                    # Reset test properties
-                    $currentTestPath = $null
-                    $currentTestType = "shell"
-                    $currentTestShell = "bash"
-                    $currentTestOs = $null
-                    $inTest = $true
-                    $collectingArray = $false
-                    
-                    # Extract property if on same line
-                    if ($line -match "^\s*-\s+([^:]+):\s*(.+)$") {
-                        $key = $matches[1].Trim()
-                        $value = $matches[2].Trim()
-                        
-                        switch ($key) {
-                            "path" { $currentTestPath = $value }
-                            "type" { $currentTestType = $value }
-                            "shell" { $currentTestShell = $value }
-                            "os" {
-                                # Handle os property in array format [val1, val2] or starting multi-line array
-                                if ($value -match "^\[(.*)\]$") {
-                                    # Array in single line format [val1, val2]
-                                    $currentTestOs = $matches[1]
-                                } elseif ($value -eq "[") {
-                                    # Start of multi-line array
-                                    $collectingArray = $true
-                                    $arrayProperty = "os"
-                                    $arrayValue = ""
-                                } else {
-                                    $currentTestOs = $value
-                                }
-                            }
-                        }
+                    # Start new test
+                    $currentTest = @{
+                        path = $matches[1].Trim()
+                        type = "shell"
+                        shell = "bash"
+                        os = $null
                     }
-                } elseif ($inTest -and -not $collectingArray -and $line -match "^\s+([^:]+):\s*(.+)$") {
-                    # Regular property within a test
-                    $key = $matches[1].Trim()
-                    $value = $matches[2].Trim()
-                    
-                    switch ($key) {
-                        "path" { $currentTestPath = $value }
-                        "type" { $currentTestType = $value }
-                        "shell" { $currentTestShell = $value }
-                        "os" {
-                            # Handle os property in array format [val1, val2] or starting multi-line array
-                            if ($value -match "^\[(.*)\]$") {
-                                # Array in single line format [val1, val2]
-                                $currentTestOs = $matches[1]
-                            } elseif ($value -eq "[") {
-                                # Start of multi-line array
-                                $collectingArray = $true
-                                $arrayProperty = "os"
-                                $arrayValue = ""
-                            } else {
-                                $currentTestOs = $value
-                            }
-                        }
-                    }
-                } elseif ($collectingArray -and $line -match "^\s+(.+)$") {
-                    # Array item in a multi-line array
-                    $item = $matches[1].Trim()
-                    # Remove trailing commas
-                    $item = $item -replace ",\s*$", ""
-                    
-                    # Add item to array value
-                    $arrayValue += "$item,"
-                } elseif ($collectingArray -and $line -match "^\s*\]$") {
-                    # End of multi-line array
-                    $collectingArray = $false
-                    
-                    # Assign array value to appropriate property
-                    if ($arrayProperty -eq "os") {
-                        $currentTestOs = $arrayValue.TrimEnd(',')
-                    }
+                } elseif ($currentTest -and $line -match "^\s*path:\s*(.+)$") {
+                    $currentTest.path = $matches[1].Trim()
+                } elseif ($currentTest -and $line -match "^\s*type:\s*(.+)$") {
+                    $currentTest.type = $matches[1].Trim()
+                } elseif ($currentTest -and $line -match "^\s*shell:\s*(.+)$") {
+                    $currentTest.shell = $matches[1].Trim()
+                } elseif ($currentTest -and $line -match "^\s*os:\s*\[(.*)\]$") {
+                    $currentTest.os = $matches[1].Trim()
+                } elseif ($currentTest -and $line -match "^\s*os:\s*(.+)$") {
+                    $currentTest.os = $matches[1].Trim()
                 }
             }
             
-            # Add the last test if we ended while still in a test
-            if ($inTest -and $currentTestPath) {
-                $tests += @{
-                    path = $currentTestPath
-                    type = $currentTestType
-                    shell = $currentTestShell
-                    os = $currentTestOs
-                }
+            # Add the last test
+            if ($currentTest) {
+                $tests += $currentTest
             }
             
-            # Check if any valid tests were found
             if ($tests.Count -eq 0) {
-                Write-Host "Error: No valid tests found in tests-list section"
+                Write-Host "Error: No tests found in configuration file"
                 exit 1
             }
             
-            Write-Host "Successfully parsed $($tests.Count) tests from config file"
+            Write-Host "Found $($tests.Count) tests in configuration"
             
             # Print discovered tests
             foreach ($test in $tests) {
@@ -1033,12 +936,15 @@ runs:
 
         # Loop through each test entry
         foreach ($test in $tests) {
-            $path = $test.path
-            if (-not $path) {
+            $testPath = $test.path
+            if ([string]::IsNullOrEmpty($testPath)) {
                 Write-Host "Error: Test missing path property"
                 $failCount++
                 continue
             }
+            
+            # Clean path (remove any carriage returns or quotes)
+            $testPath = $testPath.Trim().Trim('"''')
             
             $type = $test.type
             $shell = $test.shell
@@ -1046,101 +952,104 @@ runs:
             # Clean up OS list (remove whitespace)
             $osList = $test.os -replace '\s+', ''
             
-            # Check if the current OS is supported for the test
-            if (-not $osList -or $osList.Count -eq 0 -or $osList -match "win32" -or $osList -match "windows") {
+            # Check if the test is for Windows
+            $isWindowsTest = (-not $osList) -or ($osList -eq "") -or ($osList -match "win32") -or ($osList -match "windows")
+            
+            if ($isWindowsTest) {
                 try {
-                    Write-Host "Running $type tests with path = $path"
+                    Write-Host "Running $type tests with path = $testPath"
 
                     # Use absolute path
-                    $fullPath = if ([System.IO.Path]::IsPathRooted($path)) { $path } else { Join-Path $env:GITHUB_WORKSPACE $path }
+                    $fullPath = if ([System.IO.Path]::IsPathRooted($testPath)) { $testPath } else { Join-Path $env:GITHUB_WORKSPACE $testPath }
                     
-                    if ($env:USE_DOCKER -eq "true") {
-                        Write-Host "Running test in Docker..."
-                        docker run --rm -i `
-                            -v "${env:GITHUB_WORKSPACE}:/workspace" `
-                            -w /workspace `
-                            windsortest:latest `
-                            bash -c "chmod +x '$path' && bash '${path}'"
+                    # Normalize path to use backslashes for Windows
+                    $fullPath = $fullPath -replace '/', '\'
+                    
+                    Write-Host "Full test path: $fullPath"
+                    
+                    if ((Test-Path -Path $fullPath -PathType Container) -and $type -eq "bats") {
+                        Write-Host "Path is a directory and type is 'bats', looking for .bats files..."
+                        $batsFiles = Get-ChildItem -Path $fullPath -Filter "*.bats" -Recurse -File
                         
-                        if ($LASTEXITCODE -ne 0) {
-                            throw "Docker test failed with exit code $LASTEXITCODE"
-                        }
-                    } else {
-                        # Check if path is a directory and type is bats
-                        if ((Test-Path -Path $fullPath -PathType Container) -and $type -eq "bats") {
-                            Write-Host "Path is a directory and type is 'bats', looking for .bats files..."
-                            $batsFiles = Get-ChildItem -Path $fullPath -Filter "*.bats" -Recurse -File
-                            
-                            if ($batsFiles.Count -eq 0) {
-                                Write-Host "Error: No .bats files found in directory: $fullPath"
-                                $failCount++
-                                continue
-                            }
-                            
-                            Write-Host "Found $($batsFiles.Count) .bats files"
-                            
-                            # Check if bats is installed
-                            try {
-                                $batsVersion = Invoke-Expression "bats --version" 2>&1
-                                Write-Host "Using bats version: $batsVersion"
-                            } catch {
-                                Write-Host "Installing bats-core..."
-                                try {
-                                    # Try using npm to install bats
-                                    Invoke-Expression "npm install -g bats" 2>&1
-                                } catch {
-                                    Write-Host "Error: Failed to install bats-core"
-                                    $failCount++
-                                    continue
-                                }
-                            }
-                            
-                            # Run all bats files
-                            $testSuccess = $true
-                            foreach ($batsFile in $batsFiles) {
-                                Write-Host "Running bats test: $($batsFile.FullName)"
-                                try {
-                                    # Convert to Unix line endings and run bats
-                                    Invoke-Expression "dos2unix '$($batsFile.FullName)' 2>/dev/null || true"
-                                    Invoke-Expression "bats '$($batsFile.FullName)'"
-                                    
-                                    if ($LASTEXITCODE -ne 0) {
-                                        Write-Host "Error: Bats test failed: $($batsFile.FullName)"
-                                        $testSuccess = $false
-                                    }
-                                } catch {
-                                    Write-Host "Error running bats test: $_"
-                                    $testSuccess = $false
-                                }
-                            }
-                            
-                            if (-not $testSuccess) {
-                                $failCount++
-                                continue
-                            }
-                        } elseif (Test-Path -Path $fullPath -PathType Leaf) {
-                            Write-Host "Running test directly with Bash..."
-                            # Use -c for PowerShell quoting
-                            bash -c "dos2unix '${fullPath}' 2>/dev/null || true; bash '${fullPath}'"
-                            
-                            if ($LASTEXITCODE -ne 0) {
-                                throw "Script execution failed with exit code $LASTEXITCODE"
-                            }
-                        } else {
-                            Write-Host "Error: Path is neither a valid file nor a directory containing bats tests: $fullPath"
+                        if ($batsFiles.Count -eq 0) {
+                            Write-Host "Error: No .bats files found in directory: $fullPath"
                             $failCount++
                             continue
                         }
+                        
+                        Write-Host "Found $($batsFiles.Count) .bats files"
+                        
+                        # Run all bats files
+                        $testSuccess = $true
+                        foreach ($batsFile in $batsFiles) {
+                            Write-Host "Running bats test: $($batsFile.FullName)"
+                            try {
+                                # Make sure to convert to Unix line endings for bats
+                                $batsFilePath = $batsFile.FullName
+                                $content = Get-Content -Path $batsFilePath -Raw
+                                $content = $content -replace "`r`n", "`n"
+                                $content | Set-Content -Path $batsFilePath -NoNewline
+                                
+                                # Run the bats test
+                                bash -c "bats '$($batsFilePath -replace '\\', '/')'"
+                                
+                                if ($LASTEXITCODE -ne 0) {
+                                    Write-Host "Error: Bats test failed: $batsFilePath"
+                                    $testSuccess = $false
+                                }
+                            } catch {
+                                Write-Host "Error running bats test: $_"
+                                $testSuccess = $false
+                            }
+                        }
+                        
+                        if (-not $testSuccess) {
+                            $failCount++
+                            continue
+                        }
+                    } elseif (Test-Path -Path $fullPath -PathType Leaf) {
+                        Write-Host "Running shell test: $fullPath"
+                        
+                        # Make sure it's readable as text
+                        $content = Get-Content -Path $fullPath -Raw -ErrorAction SilentlyContinue
+                        if ($content) {
+                            # Convert CRLF to LF for bash
+                            $content = $content -replace "`r`n", "`n"
+                            $tempFile = [System.IO.Path]::GetTempFileName()
+                            $content | Set-Content -Path $tempFile -NoNewline
+                            
+                            # Use bash to run the script with the fixed line endings
+                            $unixPath = $tempFile -replace '\\', '/'
+                            Write-Host "Executing with bash: $unixPath"
+                            bash -c "bash '$unixPath'"
+                            
+                            $exitCode = $LASTEXITCODE
+                            Remove-Item -Path $tempFile -Force
+                            
+                            if ($exitCode -ne 0) {
+                                Write-Host "Error: Script execution failed with exit code $exitCode"
+                                $failCount++
+                                continue
+                            }
+                        } else {
+                            Write-Host "Error: Could not read file content: $fullPath"
+                            $failCount++
+                            continue
+                        }
+                    } else {
+                        Write-Host "Error: Path is neither a valid file nor a directory containing bats tests: $fullPath"
+                        $failCount++
+                        continue
                     }
                     
                     $successCount++
-                    echo "Test executed successfully"
+                    Write-Host "Test executed successfully"
                 } catch {
                     Write-Host "Error running test: $_"
                     $failCount++
                 }
             } else {
-                Write-Host "Skipping $type test at $path for OS win32"
+                Write-Host "Skipping $type test at $testPath for OS win32 (only runs on: $osList)"
             }
         }
 
@@ -1149,6 +1058,10 @@ runs:
         Write-Host "========================================="
         Write-Host "Success: $successCount"
         Write-Host "Failed:  $failCount"
+        
+        # Set environment variables for step output
+        "TEST_SUCCESS_COUNT=$successCount" | Out-File -FilePath $env:GITHUB_ENV -Append
+        "TEST_FAIL_COUNT=$failCount" | Out-File -FilePath $env:GITHUB_ENV -Append
         
         if ($failCount -gt 0) {
             Write-Host "One or more tests failed!"
