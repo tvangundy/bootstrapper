@@ -521,7 +521,7 @@ runs:
           os_list=$(echo "$os_list" | tr -d '[:space:]')
           
           # Check if the current OS is supported for the test
-          if [[ -z "$os_list" || "$os_list" == *"$current_os"* || "$os_list" == *"$PLATFORM"* ]]; then
+          if [[ -z "$os_list" || "$os_list" == *"$current_os"* ]]; then
             echo "Running $type test: $path"
             
             # Use absolute path

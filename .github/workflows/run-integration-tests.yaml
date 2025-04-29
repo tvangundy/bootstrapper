@@ -31,7 +31,10 @@ on:
         description: 'Test Target Repository Name'
         required: true
         default: 'cli'
-        
+      token:
+        description: 'GitHub token for API authentication'
+        required: false
+        default: ''
 permissions:
   contents: read
 
@@ -49,6 +52,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Validate Release Input
+        id: validate_release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ inputs.token != '' && inputs.token || secrets.WINDSORCLI_RELEASE_TOKEN }}
+          script: |
+            try {
+              const releaseInput = '${{ inputs.release_branch }}';
+              const validFormat = /^(release-latest|release-[0-9]+\.[0-9]+\.[0-9]+|v?[0-9]+\.[0-9]+\.[0-9]+|[0-9]+\.[0-9]+\.[0-9]+)$/;
+  
+              if (!validFormat.test(releaseInput)) {
+                console.log("Release input:", releaseInput);
+                throw new Error("Invalid release input. Please provide 'release-latest' or a version in the format 'release-x.y.z', 'v0.1.0', or '0.1.0'.");
+              }
+              console.log("Validated release input value:", releaseInput);
+              core.setOutput('validated', 'true');
+            } catch (error) {
+              core.setFailed(`Release validation failed: ${error.message}`);
+              throw error;
+            }
+  
       - name: Print Out the inputs
         run: |
           echo "Integration Test Input Variables"
@@ -66,7 +90,7 @@ jobs:
         uses: ./.github/actions/determine-release-branch
         with:
           version: ${{ inputs.version }}
-          release: ${{ inputs.release }}
+          release: ${{ inputs.release_branch }}
           repo_owner: ${{ inputs.target_repo_owner }}
           repo_name: ${{ inputs.target_repo_name }}
           token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}
