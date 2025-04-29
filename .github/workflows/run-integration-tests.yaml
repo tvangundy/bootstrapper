@@ -205,6 +205,147 @@ jobs:
           Get-ChildItem -Path tests\shell -Recurse
         shell: powershell
 
+      - name: Install Windsor CLI
+        uses: windsorcli/action@5b792556ba81bdc6f8abad529343a47f883832cc # v0.3.0
+        with:
+          version: ${{ needs.integration-test-prep.outputs.VERSION != '' && needs.integration-test-prep.outputs.VERSION || 'latest' }}
+          ref: ${{ needs.integration-test-prep.outputs.RELEASE_BRANCH }}
+          context: "local"
+
+      - name: Get Windsor Context
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+  
+            try {
+              const windsorContext = execSync('windsor context get', { encoding: 'utf-8' });
+              console.log(`Windsor context: ${windsorContext.trim()}`);
+            } catch (error) {
+              console.error('Error getting Windsor context:', error.message);
+              core.setFailed(`Failed to get Windsor context: ${error.message}`);
+            }
+  
+      - name: Windsor Check
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+  
+            try {
+              const windsorCheckOutput = execSync('windsor check', { encoding: 'utf-8' });
+              console.log(`Windsor check output: ${windsorCheckOutput.trim()}`);
+            } catch (error) {
+              console.error('Error running Windsor check:', error.message);
+              core.setFailed(`Windsor check failed: ${error.message}`);
+            }
+  
+      - name: Windsor Up
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            const os = require('os');
+  
+            try {
+              const platform = os.platform();
+              const isWindows = platform === 'win32';
+              const windsorCommand = isWindows ? 'windsor.exe' : 'windsor';
+  
+              console.log(`Detected platform: ${platform}`);
+  
+              if (${{ inputs.windsor_up }} === 'true') {
+                console.log('Running Windsor Up...');
+                const command = isWindows 
+                  ? `${windsorCommand} up --install --verbose`
+                  : `${windsorCommand} up --install --verbose`;
+                execSync(command, { stdio: 'inherit' });
+                console.log('Windsor Up completed successfully.');
+              } else {
+                console.log('Warning: WINDSOR_UP was not set, skipping Windsor Up');
+              }
+            } catch (error) {
+              console.error('Error running Windsor Up:', error.message);
+              core.setFailed(`Windsor Up failed: ${error.message}`);
+            }
+  
+      - name: Check Pods Status
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            const fs = require('fs');
+  
+            try {
+              if (!${{ inputs.windsor_up }}) {
+                console.log('WINDSOR_UP is not set to true. Skipping Check Pods Status.');
+                return;
+              }
+  
+              const platform = require('os').platform();
+              const isWindows = platform === 'win32';
+              const windsorCommand = isWindows ? 'windsor.exe' : 'windsor';
+  
+              console.log(`Using Windsor CLI at: ${windsorCommand}`);
+  
+              // Fetch all pods in all namespaces in JSON format
+              execSync(`${windsorCommand} exec -- kubectl get pods -A -o json > pods.json`, { stdio: 'inherit' });
+  
+              const podsJson = fs.readFileSync('pods.json', 'utf8');
+  
+              if (!podsJson) {
+                console.error('No JSON output received. Please check if the Kubernetes cluster is accessible and has pods.');
+                core.setFailed('No pod information received from cluster');
+                return;
+              }
+  
+              const pods = JSON.parse(podsJson);
+  
+              // Initialize counters
+              let runningCount = 0;
+              let nonRunningCount = 0;
+  
+              // Print header with proper spacing
+              console.log(`${'NAMESPACE'.padEnd(20)} ${'POD_NAME'.padEnd(50)} ${'STATUS'.padEnd(10)}`);
+  
+              pods.items.forEach(item => {
+                const namespace = item.metadata.namespace;
+                const podName = item.metadata.name;
+                const status = item.status.phase;
+  
+                console.log(`${namespace.padEnd(20)} ${podName.padEnd(50)} ${status.padEnd(10)}`);
+  
+                if (status !== 'Running') {
+                  nonRunningCount++;
+                } else {
+                  runningCount++;
+                }
+              });
+  
+              console.log('\nSummary:');
+              console.log(`Running pods: ${runningCount}`);
+              console.log(`Non-running pods: ${nonRunningCount}`);
+  
+              if (nonRunningCount > 0) {
+                console.warn(`Warning: There are ${nonRunningCount} pods that are not running.`);
+              }
+            } catch (error) {
+              console.error('Error checking pod status:', error.message);
+              core.setFailed(`Failed to check pod status: ${error.message}`);
+            }
+  
+      - name: Test Windsor Version
+        run: |
+          windsor.exe version
+          
+          if ($LASTEXITCODE -eq 0) {
+              Write-Host "✅ Windsor CLI is working properly"
+          } else {
+              Write-Host "❌ Failed to run windsor version command"
+              exit 1
+          }
+        shell: powershell
+
       - name: Run Windows Tests
         run: |
           $ErrorActionPreference = "Continue"
@@ -252,23 +393,4 @@ jobs:
           } else {
               Write-Host "✅ All tests completed successfully!"
           }
-        shell: powershell
-
-      - name: Install Windsor CLI
-        uses: windsorcli/action@5b792556ba81bdc6f8abad529343a47f883832cc # v0.3.0
-        with:
-          version: ${{ needs.integration-test-prep.outputs.VERSION != '' && needs.integration-test-prep.outputs.VERSION || 'latest' }}
-          ref: ${{ needs.integration-test-prep.outputs.RELEASE_BRANCH }}
-          context: "local"
-
-      - name: Test Windsor Version
-        run: |
-          windsor.exe version
-          
-          if ($LASTEXITCODE -eq 0) {
-              Write-Host "✅ Windsor CLI is working properly"
-          } else {
-              Write-Host "❌ Failed to run windsor version command"
-              exit 1
-          }
-        shell: powershell
+        shell: powershell        
