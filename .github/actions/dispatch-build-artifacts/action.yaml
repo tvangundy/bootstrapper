@@ -164,25 +164,68 @@ runs:
         github-token: ${{ inputs.token }}
         script: |
           try {
+            // Get the dispatch time from previous step
+            const dispatchTime = process.env.DISPATCH_TIME;
+            const dispatchTimestamp = new Date(dispatchTime).getTime();
+            
+            console.log(`Dispatch time: ${dispatchTime}`);
+            
             async function waitForLatestWorkflowRun(owner, repo, workflowId, targetBranch) {
-              console.log(`Waiting for workflow run on branch ${targetBranch}`);
+              console.log(`Waiting for workflow run in ${owner}/${repo}`);
+              console.log(`Workflow ID: ${workflowId}, Branch: ${targetBranch}`);
+              console.log(`Looking for runs created after dispatch time: ${dispatchTime}`);
+              
+              // Wait 10 seconds initially to ensure the workflow has had time to start
+              console.log('Waiting 10 seconds before checking for workflow runs...');
+              await new Promise(resolve => setTimeout(resolve, 10000));
+              
+              // List all running workflows first
+              const allRuns = await github.rest.actions.listWorkflowRuns({
+                owner: owner,
+                repo: repo,
+                workflow_id: workflowId,
+                per_page: 10
+              });
+              
+              console.log(`Found ${allRuns.data.workflow_runs.length} total workflow runs for this workflow`);
+              allRuns.data.workflow_runs.forEach((run, index) => {
+                const runTime = new Date(run.created_at).getTime();
+                const timeDiff = (runTime - dispatchTimestamp) / 1000;
+                console.log(`Run ${index+1}: ID=${run.id}, Created=${run.created_at}, Status=${run.status}, Time diff=${timeDiff}s`);
+              });
               
               for (let i = 0; i < 30; i++) {
                 console.log(`Check attempt ${i+1}/30`);
                 
+                // Get all workflow runs for the workflow
                 const runs = await github.rest.actions.listWorkflowRuns({
                   owner: owner,
                   repo: repo,
                   workflow_id: workflowId,
-                  branch: targetBranch,
-                  per_page: 3
+                  per_page: 10
                 });
                 
-                if (runs.data.workflow_runs.length > 0) {
-                  const latestRun = runs.data.workflow_runs[0];
-                  console.log(`Found workflow run: ID=${latestRun.id}, Status=${latestRun.status}`);
+                // Sort runs by creation time (newest first)
+                const sortedRuns = runs.data.workflow_runs.sort((a, b) => 
+                  new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                );
+                
+                // Find the runs that were created after our dispatch
+                // Add a 5-second buffer to account for potential timing issues
+                const relevantRuns = sortedRuns.filter(run => {
+                  const runTime = new Date(run.created_at).getTime();
+                  return runTime >= (dispatchTimestamp - 5000);
+                });
+                
+                if (relevantRuns.length > 0) {
+                  // Get the most recent run
+                  const latestRun = relevantRuns[0];
                   
+                  console.log(`Found relevant workflow run: ID=${latestRun.id}, Created=${latestRun.created_at}, Status=${latestRun.status}`);
+                  
+                  // Check if it's already been completed
                   if (latestRun.status === 'completed') {
+                    console.log(`Run ${latestRun.id} has completed with conclusion: ${latestRun.conclusion}`);
                     return {
                       id: latestRun.id,
                       conclusion: latestRun.conclusion,
@@ -190,9 +233,10 @@ runs:
                     };
                   }
                   
-                  console.log(`Workflow run ${latestRun.id} still in progress (${latestRun.status}), waiting...`);
+                  // If it's in progress, provide status info
+                  console.log(`Run ${latestRun.id} is still ${latestRun.status}, waiting...`);
                 } else {
-                  console.log(`No workflow runs found for branch ${targetBranch}, waiting...`);
+                  console.log(`No relevant workflow runs found yet, waiting...`);
                 }
                 
                 // Wait 20 seconds before checking again
@@ -207,10 +251,8 @@ runs:
             const targetRepo = '${{ inputs.test_repo_name }}';
             const workflowId = 'build-artifacts.yaml';
             
-            console.log(`Looking for workflow runs in ${targetOwner}/${targetRepo}`);
-            console.log(`Workflow ID: ${workflowId}`);
-            
-            // For dispatched workflows, we monitor the 'main' branch since that's where the dispatch happened
+            // For dispatched workflows, we need to check the correct branch
+            // If the inputs specify a different branch, use that
             const targetBranch = 'main';
             
             // Execute the wait function
@@ -222,10 +264,11 @@ runs:
             
             core.setOutput('workflow_conclusion', result.conclusion);
             core.setOutput('workflow_url', result.url);
+            core.setOutput('workflow_run_id', result.id);
             
             // Fail the action if the dispatched workflow failed
             if (result.conclusion !== 'success') {
-              core.setFailed(`Dispatched workflow completed with status: ${result.conclusion}`);
+              core.setFailed(`Dispatched workflow completed with status: ${result.conclusion}. Check the run at ${result.url}`);
             }
           } catch (error) {
             console.error("Error waiting for workflow completion:", error.message);
