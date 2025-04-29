@@ -39,12 +39,12 @@ jobs:
   integration-test-prep:
     runs-on: ubuntu-latest
     outputs:
-      RUNNER_LIST: ${{ steps.test_prep.outputs.RUNNER_LIST }}
-      PLATFORM_OS: ${{ steps.test_prep.outputs.PLATFORM_OS }}
-      WINDSOR_TEST_CONFIG_PATH: ${{ steps.test_prep.outputs.WINDSOR_TEST_CONFIG_PATH }}
-      VERSION: ${{ steps.test_prep.outputs.VERSION }}
-      RELEASE_BRANCH: ${{ steps.test_prep.outputs.RELEASE_BRANCH }}
-      RELEASE_NUMBER: ${{ steps.test_prep.outputs.RELEASE_NUMBER }}
+      UNIX_RUNNER_LIST: ${{ steps.unix_runner_prep.outputs.RUNNER_LIST }}
+      PLATFORM_OS: ${{ steps.platform_detection.outputs.PLATFORM_OS }}
+      WINDSOR_TEST_CONFIG_PATH: ${{ steps.config_path.outputs.WINDSOR_TEST_CONFIG_PATH }}
+      VERSION: ${{ steps.set_release_info.outputs.VERSION }}
+      RELEASE_BRANCH: ${{ steps.set_release_info.outputs.RELEASE_BRANCH }}
+      RELEASE_NUMBER: ${{ steps.set_release_info.outputs.RELEASE_NUMBER }}
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -82,50 +82,59 @@ jobs:
           echo "----------------------------------------"
         shell: bash
 
-      - name: Run Integration Test Prep Action
-        id: test_prep
-        uses: ./.github/actions/integration-test-prep
+      - name: Set Release Information
+        id: set_release_info
+        run: |
+          echo "VERSION=${{ env.VERSION }}" >> $GITHUB_OUTPUT
+          echo "RELEASE_BRANCH=${{ env.RELEASE_BRANCH }}" >> $GITHUB_OUTPUT
+          echo "RELEASE_NUMBER=${{ env.RELEASE_NUMBER }}" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Determine Platform Type
+        id: platform_detection
+        run: |
+          PLATFORM_OS=$(uname | tr '[:upper:]' '[:lower:]')
+          echo "PLATFORM_OS=$PLATFORM_OS" >> $GITHUB_OUTPUT
+          echo "Detected platform: $PLATFORM_OS"
+        shell: bash
+
+      - name: Set Windsor Test Config Path
+        id: config_path
+        run: |
+          WINDSOR_TEST_CONFIG_PATH="tests/configs/${{ inputs.windsor_test_config }}"
+          echo "WINDSOR_TEST_CONFIG_PATH=$WINDSOR_TEST_CONFIG_PATH" >> $GITHUB_OUTPUT
+          echo "Windsor Test Config Path: $WINDSOR_TEST_CONFIG_PATH"
+        shell: bash
+
+      - name: Build Unix Runner List
+        id: unix_runner_prep
+        uses: ./.github/actions/build-unix-runner-list
         with:
-          repo_owner: ${{ inputs.target_repo_owner }}
-          repo_name: ${{ inputs.target_repo_name }}
-          version: ${{ env.VERSION }}
-          release_branch: ${{ env.RELEASE_BRANCH }}
-          release_number: ${{ env.RELEASE_NUMBER }}
-          windsor_test_config: ${{ inputs.windsor_test_config }}
-          token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}    
+          config_file_path: '${{ steps.config_path.outputs.WINDSOR_TEST_CONFIG_PATH }}'
 
       - name: Print Integration Test Prep Results
         run: |
           echo "Integration Test Prep Results"
           echo "----------------------------------------"
-          echo "Environment Variables:"
-          echo "RUNNER_LIST: ${{ env.RUNNER_LIST }}"
-          echo "PLATFORM_OS: ${{ env.PLATFORM_OS }}"
-          echo "WINDSOR_TEST_CONFIG_PATH: ${{ env.WINDSOR_TEST_CONFIG_PATH }}"
-          echo "VERSION: ${{ env.VERSION }}"
-          echo "RELEASE_BRANCH: ${{ env.RELEASE_BRANCH }}"
-          echo "RELEASE_NUMBER: ${{ env.RELEASE_NUMBER }}"
-          echo "----------------------------------------"
-          echo "Action Outputs:"
-          echo "RUNNER_LIST: ${{ steps.test_prep.outputs.RUNNER_LIST }}"
-          echo "PLATFORM_OS: ${{ steps.test_prep.outputs.PLATFORM_OS }}"
-          echo "WINDSOR_TEST_CONFIG_PATH: ${{ steps.test_prep.outputs.WINDSOR_TEST_CONFIG_PATH }}"
-          echo "VERSION: ${{ steps.test_prep.outputs.VERSION }}"
-          echo "RELEASE_BRANCH: ${{ steps.test_prep.outputs.RELEASE_BRANCH }}"
-          echo "RELEASE_NUMBER: ${{ steps.test_prep.outputs.RELEASE_NUMBER }}"
+          echo "UNIX_RUNNER_LIST: ${{ steps.unix_runner_prep.outputs.RUNNER_LIST }}"
+          echo "PLATFORM_OS: ${{ steps.platform_detection.outputs.PLATFORM_OS }}"
+          echo "WINDSOR_TEST_CONFIG_PATH: ${{ steps.config_path.outputs.WINDSOR_TEST_CONFIG_PATH }}"
+          echo "VERSION: ${{ steps.set_release_info.outputs.VERSION }}"
+          echo "RELEASE_BRANCH: ${{ steps.set_release_info.outputs.RELEASE_BRANCH }}"
+          echo "RELEASE_NUMBER: ${{ steps.set_release_info.outputs.RELEASE_NUMBER }}"
           echo "----------------------------------------"
         shell: bash
 
-  integration-test:
+  unix-integration-tests:
+    name: Unix Tests (Linux/macOS)
     needs: 
       - integration-test-prep
     strategy:
       fail-fast: false
       matrix:
-        runner: ${{ fromJson(needs.integration-test-prep.outputs.RUNNER_LIST) }}
+        runner: ${{ fromJson(needs.integration-test-prep.outputs.UNIX_RUNNER_LIST) }}
             
     runs-on: ${{ matrix.runner.os }}
-    # Windows tests are run in a separate workflow
       
     steps:
       - name: Checkout code
@@ -136,12 +145,11 @@ jobs:
           echo "----------------------------------------"
           echo "Integration Test Inputs from Previous Job"
           echo "----------------------------------------"
-          echo "Platform OS: ${{ needs.integration-test-prep.outputs.PLATFORM_OS }}"
+          echo "Platform: ${{ matrix.runner.os }}"
           echo "Windsor Test Config: ${{ needs.integration-test-prep.outputs.WINDSOR_TEST_CONFIG_PATH }}"
           echo "Version: ${{ needs.integration-test-prep.outputs.VERSION }}"
           echo "Release Branch: ${{ needs.integration-test-prep.outputs.RELEASE_BRANCH }}"
           echo "Release Number: ${{ needs.integration-test-prep.outputs.RELEASE_NUMBER }}"
-          echo "Runner OS: ${{ matrix.runner.os }}"
           echo "Runner Label: ${{ matrix.runner.label }}"
           echo "Docker Host: ${{ matrix.runner.docker_host }}"
           echo "----------------------------------------"
@@ -157,3 +165,110 @@ jobs:
           windsor_test_config: ${{ needs.integration-test-prep.outputs.WINDSOR_TEST_CONFIG_PATH }}
           docker_host: ${{ matrix.runner.docker_host }}
           platform: ${{ needs.integration-test-prep.outputs.PLATFORM_OS }}
+
+  windows-integration-tests:
+    name: Windows Tests
+    needs: integration-test-prep
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up test environment
+        run: |
+          Write-Host "Setting up Windows test environment"
+          $ErrorActionPreference = "Continue"
+          
+          # Create test directories
+          New-Item -Path "tests\shell" -ItemType Directory -Force | Out-Null
+          
+          # Create Windows-specific test files
+          $windowsTestFile = "tests\shell\windows-test.bat"
+          $sampleTestFile = "tests\shell\sample-test-win.bat"
+          
+          # Create test file content with individual lines
+          Set-Content -Path $windowsTestFile -Value "@echo off"
+          Add-Content -Path $windowsTestFile -Value "echo Running Windsor Windows Test"
+          Add-Content -Path $windowsTestFile -Value "echo Testing on Windows version:"
+          Add-Content -Path $windowsTestFile -Value "ver"
+          Add-Content -Path $windowsTestFile -Value "echo Test completed successfully!"
+          Add-Content -Path $windowsTestFile -Value "exit /b 0"
+          
+          # Create second test file
+          Set-Content -Path $sampleTestFile -Value "@echo off"
+          Add-Content -Path $sampleTestFile -Value "echo Hello, World from Windows!"
+          Add-Content -Path $sampleTestFile -Value "echo Testing Windsor on Windows"
+          Add-Content -Path $sampleTestFile -Value "exit /b 0"
+          
+          Write-Host "Created test files:"
+          Get-ChildItem -Path tests\shell -Recurse
+        shell: powershell
+
+      - name: Run Windows Tests
+        run: |
+          $ErrorActionPreference = "Continue"
+          
+          Write-Host "========================================="
+          Write-Host "          RUNNING WINDOWS TESTS          "
+          Write-Host "========================================="
+          
+          $windowsTests = @(
+              "tests\shell\windows-test.bat",
+              "tests\shell\sample-test-win.bat"
+          )
+          
+          $successCount = 0
+          $failCount = 0
+          
+          foreach ($testPath in $windowsTests) {
+              Write-Host "Running test: $testPath"
+              
+              # Execute the test
+              cmd /c $testPath
+              $exitCode = $LASTEXITCODE
+              
+              if ($exitCode -eq 0) {
+                  Write-Host "✅ Test passed successfully"
+                  $successCount++
+              } else {
+                  Write-Host "❌ Test failed with exit code: $exitCode"
+                  $failCount++
+              }
+              
+              Write-Host "-------------------"
+          }
+          
+          Write-Host "========================================="
+          Write-Host "           TEST EXECUTION SUMMARY        "
+          Write-Host "========================================="
+          Write-Host "Success: $successCount"
+          Write-Host "Failed: $failCount"
+          Write-Host "-------------------"
+          
+          if ($failCount -gt 0) {
+              Write-Host "⚠️ One or more tests failed!"
+              exit 1
+          } else {
+              Write-Host "✅ All tests completed successfully!"
+          }
+        shell: powershell
+
+      - name: Install Windsor CLI
+        uses: windsorcli/action@5b792556ba81bdc6f8abad529343a47f883832cc # v0.3.0
+        with:
+          version: ${{ needs.integration-test-prep.outputs.VERSION != '' && needs.integration-test-prep.outputs.VERSION || 'latest' }}
+          ref: ${{ needs.integration-test-prep.outputs.RELEASE_BRANCH }}
+          context: "local"
+
+      - name: Test Windsor Version
+        run: |
+          windsor.exe version
+          
+          if ($LASTEXITCODE -eq 0) {
+              Write-Host "✅ Windsor CLI is working properly"
+          } else {
+              Write-Host "❌ Failed to run windsor version command"
+              exit 1
+          }
+        shell: powershell

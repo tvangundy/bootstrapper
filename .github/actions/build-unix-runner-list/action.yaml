@@ -1,0 +1,105 @@
+name: 'Build Unix Runner List'
+description: 'Extracts runner information from Windsor test configuration file, excluding Windows runners'
+
+inputs:
+  config_file_path:
+    description: 'Windsor test configuration file (relative to workspace root)'
+    required: false
+    default: 'tests/configs/ci-integration-tests.yaml'
+
+outputs:
+  RUNNER_LIST:
+    description: 'JSON string containing the list of Unix runners extracted from config'
+    value: ${{ steps.build_runners.outputs.RUNNER_LIST }}
+  PLATFORM_OS_LIST:
+    description: 'JSON string containing the list of unique platform OS values from Unix runners'
+    value: ${{ steps.build_runners.outputs.PLATFORM_OS_LIST }}
+
+permissions:
+  contents: read
+
+runs:
+  using: 'composite'
+
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'  # Use a more recent Node.js version
+
+    - name: Install Dependencies
+      run: npm install js-yaml
+      shell: bash
+
+    - name: Build Unix Runner List
+      id: build_runners
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          const yaml = require('js-yaml');
+
+          try {
+            // Load the YAML configuration file
+            const configFilePath = '${{ inputs.config_file_path }}';
+            console.log(`Processing Windsor Test Config: ${configFilePath}`);
+            
+            const configPath = path.join(process.env.GITHUB_WORKSPACE, configFilePath);
+            
+            if (!fs.existsSync(configPath)) {
+              throw new Error(`Configuration file not found: ${configPath}`);
+            }
+            
+            const configFile = fs.readFileSync(configPath, 'utf8');
+            const config = yaml.load(configFile);
+
+            // Extract runners list
+            const runners = config.runners;
+            if (!runners || !Array.isArray(runners) || runners.length === 0) {
+              throw new Error(`No valid runners found in ${configFilePath}`);
+            }
+
+            // Prepare runner list with required properties and filter out Windows runners
+            const runnerList = runners
+              .filter(runner => {
+                // Filter out any runner with OS containing 'windows' (case-insensitive)
+                const os = (runner.os || '').toLowerCase();
+                return !os.includes('windows');
+              })
+              .map(runner => {
+                if (!runner.os || !runner.label) {
+                  console.warn(`Warning: Runner missing required fields: ${JSON.stringify(runner)}`);
+                }
+                
+                return {
+                  os: runner.os || '',
+                  label: runner.label || '',
+                  arch: runner.arch || '',
+                  docker_host: runner.docker_host || ''
+                };
+              });
+
+            console.log(`Filtered ${runners.length} total runners to ${runnerList.length} Unix runners`);
+
+            // Extract unique platform OS values
+            const uniqueOsValues = [...new Set(runnerList.map(runner => runner.os).filter(Boolean))];
+            
+            // Convert lists to JSON strings
+            const runnerListJson = JSON.stringify(runnerList);
+            const platformOsJson = JSON.stringify(uniqueOsValues);
+
+            // Set outputs using the proper GitHub Actions method - using UPPERCASE names to match
+            core.setOutput('RUNNER_LIST', runnerListJson);
+            core.setOutput('PLATFORM_OS_LIST', platformOsJson);
+            
+            // Also set as environment variables
+            core.exportVariable('RUNNER_LIST', runnerListJson);
+            core.exportVariable('PLATFORM_OS_LIST', platformOsJson);
+            
+            console.log(`Successfully extracted ${runnerList.length} Unix runners from config`);
+            console.log(`Unique OS platforms: ${platformOsJson}`);
+          } catch (error) {
+            core.setFailed(`Error building Unix runner list: ${error.message}`);
+            throw error;
+          } 
