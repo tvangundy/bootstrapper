@@ -71,7 +71,7 @@ runs:
         version: ${{ inputs.version }}
         release: ${{ inputs.release }}
         repo_owner: ${{ inputs.target_repo_owner }}
-        repo_name: ${{ inputs.repo_name }}
+        repo_name: ${{ inputs.target_repo_name }}
         token: ${{ inputs.token }}
 
     - name: Display Release Info
