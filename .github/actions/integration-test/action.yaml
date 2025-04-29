@@ -138,7 +138,7 @@ runs:
             }
           } catch (error) {
             console.error('Error installing tools:', error.message);
-            process.exit(1);
+            core.setFailed(`Failed to install tools: ${error.message}`);
           }
 
     - name: Set DOCKER_HOST Environment Variable
@@ -165,7 +165,7 @@ runs:
             }
           } catch (error) {
             console.error('Error setting DOCKER_HOST environment variable:', error.message);
-            process.exit(1);
+            core.setFailed(`Failed to set DOCKER_HOST: ${error.message}`);
           }
 
     - name: Install Windsor CLI
@@ -186,7 +186,7 @@ runs:
             console.log(`Windsor context: ${windsorContext.trim()}`);
           } catch (error) {
             console.error('Error getting Windsor context:', error.message);
-            process.exit(1);
+            core.setFailed(`Failed to get Windsor context: ${error.message}`);
           }
 
     - name: Windsor Check
@@ -200,7 +200,7 @@ runs:
             console.log(`Windsor check output: ${windsorCheckOutput.trim()}`);
           } catch (error) {
             console.error('Error running Windsor check:', error.message);
-            process.exit(1);
+            core.setFailed(`Windsor check failed: ${error.message}`);
           }
 
     - name: Windsor Up
@@ -229,7 +229,7 @@ runs:
             }
           } catch (error) {
             console.error('Error running Windsor Up:', error.message);
-            process.exit(1);
+            core.setFailed(`Windsor Up failed: ${error.message}`);
           }
 
     - name: Check Pods Status
@@ -242,7 +242,7 @@ runs:
           try {
             if (!${{ inputs.windsor_up }}) {
               console.log('WINDSOR_UP is not set to true. Skipping Check Pods Status.');
-              process.exit(0);
+              return;
             }
 
             const platform = require('os').platform();
@@ -258,7 +258,8 @@ runs:
 
             if (!podsJson) {
               console.error('No JSON output received. Please check if the Kubernetes cluster is accessible and has pods.');
-              process.exit(1);
+              core.setFailed('No pod information received from cluster');
+              return;
             }
 
             const pods = JSON.parse(podsJson);
@@ -291,11 +292,9 @@ runs:
             if (nonRunningCount > 0) {
               console.warn(`Warning: There are ${nonRunningCount} pods that are not running.`);
             }
-
-            process.exit(0);
           } catch (error) {
             console.error('Error checking pod status:', error.message);
-            process.exit(1);
+            core.setFailed(`Failed to check pod status: ${error.message}`);
           }
 
     - name: Run Tests
@@ -562,7 +561,7 @@ runs:
             
             if (!windsorUpInput) {
               console.log('WINDSOR_UP is not set to true. Skipping Windsor Down.');
-              process.exit(0);
+              return;
             }
 
             const platform = os.platform();
@@ -578,7 +577,7 @@ runs:
             console.log('Windsor Down completed successfully.');
           } catch (error) {
             console.error('Error running Windsor Down:', error.message);
-            process.exit(1);
+            core.setFailed(`Windsor Down failed: ${error.message}`);
           }
 
     - name: Docker Clean
@@ -596,7 +595,7 @@ runs:
             
             if (!windsorUpInput) {
               console.log('WINDSOR_UP is not set to true. Skipping Docker Clean.');
-              process.exit(0);
+              return;
             }
 
             // Check if Docker is installed
@@ -605,7 +604,8 @@ runs:
               console.log('Docker is installed.');
             } catch (error) {
               console.error('Docker is not installed. Exiting.');
-              process.exit(1);
+              core.setFailed('Docker is not installed');
+              return;
             }
 
             // Check for running containers and remove them
@@ -635,7 +635,7 @@ runs:
             }
           } catch (error) {
             console.error('Error during Docker clean-up:', error.message);
-            process.exit(1);
+            core.setFailed(`Docker clean-up failed: ${error.message}`);
           }
       
     - name: Docker Clean on Windows
@@ -683,12 +683,14 @@ runs:
 
             if (workspace === '/') {
               console.error('Error: GITHUB_WORKSPACE is the root folder. Aborting cleanup.');
-              process.exit(1);
+              core.setFailed('GITHUB_WORKSPACE is the root folder');
+              return;
             }
 
             if (!fs.existsSync(workspace) || !fs.lstatSync(workspace).isDirectory()) {
               console.error('Error: GITHUB_WORKSPACE is not a directory. Aborting cleanup.');
-              process.exit(1);
+              core.setFailed('GITHUB_WORKSPACE is not a directory');
+              return;
             }
 
             const directoriesToRemove = [
@@ -730,7 +732,7 @@ runs:
 
           } catch (error) {
             console.error('Error during Windsor clean-up:', error.message);
-            process.exit(1);
+            core.setFailed(`Windsor clean-up failed: ${error.message}`);
           }
 
     - name: Remove tools
@@ -746,7 +748,7 @@ runs:
             console.log('Tools removed successfully.');
           } catch (error) {
             console.error('Error removing tools:', error.message);
-            process.exit(1);
+            core.setFailed(`Failed to remove tools: ${error.message}`);
           }
     
     - name: Check for Remaining Files
@@ -782,13 +784,14 @@ runs:
             if (remainingFiles.length > 0) {
               console.error('Error: Found files in the workspace that should be removed:');
               remainingFiles.forEach(file => console.log(file));
-              process.exit(1);
+              core.setFailed('Found files in the workspace that should be removed');
+              return;
             } else {
               console.log('No remaining files found in the workspace.');
             }
           } catch (error) {
             console.error('Error checking for remaining files:', error.message);
-            process.exit(1);
+            core.setFailed(`Failed to check for remaining files: ${error.message}`);
           }
     
     ### 
