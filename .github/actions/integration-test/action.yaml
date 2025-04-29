@@ -753,10 +753,19 @@ runs:
               elif [ -f "$full_path" ]; then
                 # Regular file test
                 chmod +x "$full_path"
-                if ! bash "$full_path"; then
-                  echo "Error: Script execution failed"
+                echo "Executing: $full_path"
+                
+                # Run the test with error output capture and exit code preservation
+                output=$(bash "$full_path" 2>&1)
+                exit_code=$?
+                echo "$output"
+                
+                if [ $exit_code -ne 0 ]; then
+                  echo "Error: Script execution failed with exit code $exit_code"
                   ((fail_count++))
                   continue
+                else
+                  echo "Successfully executed shell test (exit code: $exit_code)"
                 fi
               else
                 echo "Error: Path is neither a valid file nor a directory containing bats tests: $full_path"

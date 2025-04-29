@@ -14,34 +14,36 @@ tests-list:
 
   # shell tests for bash and zsh on Linux and macOS
   - path: tests/shell/sample-test.sh
-    os: [linux, darwin]
+    type: shell
     shell: bash
-  - path: tests/shell/sample-test.sh
     os: [linux, darwin]
+  - path: tests/shell/ensure-exit-code.sh
+    type: shell
+    shell: bash
+    os: [linux, darwin]
+  - path: tests/shell/sample-test.sh
+    type: shell
     shell: zsh
+    os: [linux, darwin]
 
   # bats tests for all shells on Linux and macOS
   - path: tests/bats
     type: bats
-    os: [linux, darwin]
     shell: bash
-
+    os: [linux, darwin]
   - path: tests/bats
     type: bats
-    os: [linux, darwin]
     shell: zsh
-
+    os: [linux, darwin]
   - path: tests/bats
     type: bats
-    os: [linux, darwin]
     shell: fish
-
+    os: [linux, darwin]
   - path: tests/bats
     type: bats
-    os: [linux, darwin]
     shell: tcsh
-
+    os: [linux, darwin]
   - path: tests/bats
     type: bats
-    os: [linux, darwin]
     shell: elvish
+    os: [linux, darwin]
