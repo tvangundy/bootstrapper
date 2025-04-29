@@ -232,6 +232,18 @@ runs:
             core.setFailed(`Failed to get Windsor context: ${error.message}`);
           }
 
+    - name: Test Windsor Version
+      run: |
+        windsor.exe version
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ Windsor CLI is working properly"
+        } else {
+            Write-Host "❌ Failed to run windsor version command"
+            exit 1
+        }
+      shell: powershell
+
     - name: Windsor Check
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
       with:
@@ -528,17 +540,185 @@ runs:
             core.setOutput('status', 'failure');
           }
 
-    - name: Test Windsor Version
+    - name: Windsor Down
+      if: always() 
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const { execSync } = require('child_process');
+          const os = require('os');
+
+          try {
+            // Check if windsor_up is true using only process.env
+            // GitHub will have set this env variable from the workflow input
+            const windsorUpInput = '${{ inputs.windsor_up }}' === 'true';
+            
+            if (!windsorUpInput) {
+              console.log('WINDSOR_UP is not set to true. Skipping Windsor Down.');
+              process.exit(0);
+            }
+
+            const platform = os.platform();
+            const isWindows = platform === 'win32';
+            const windsorCommand = isWindows ? 'windsor.exe' : 'windsor';
+
+            console.log(`Detected platform: ${platform}`);
+            console.log('Running Windsor Down...');
+
+            // Execute the Windsor Down command
+            execSync(`${windsorCommand} down --clean`, { stdio: 'inherit' });
+
+            console.log('Windsor Down completed successfully.');
+          } catch (error) {
+            console.error('Error running Windsor Down:', error.message);
+            process.exit(1);
+          }
+
+    - name: Docker Clean
+      if: always()
       run: |
-        windsor.exe version
-        
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ Windsor CLI is working properly"
-        } else {
-            Write-Host "❌ Failed to run windsor version command"
-            exit 1
+        $windsorUpInput = [bool]::Parse("${{ inputs.windsor_up }}")
+        if (-not $windsorUpInput) {
+          Write-Output 'WINDSOR_UP is not set to true. Skipping Docker Clean on Windows.'
+          exit 0
         }
+
+        $containers = docker ps -aq
+        if ($containers) {
+          Write-Output "Removing containers..."
+          docker rm -f $containers
+        } else {
+          Write-Output "No containers to remove."
+        }
+
+        # Prune system, volumes, and networks
+        Write-Output "Pruning Docker system, volumes, and networks..."
+        docker system prune -a -f
+        docker volume prune -f
+        docker network prune -f
+        docker system prune -a -f
       shell: powershell
+  
+    - name: Windsor Clean
+      if: always() 
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+
+          try {
+            const workspace = process.env.GITHUB_WORKSPACE;
+
+            if (workspace === '/') {
+              console.error('Error: GITHUB_WORKSPACE is the root folder. Aborting cleanup.');
+              process.exit(1);
+            }
+
+            if (!fs.existsSync(workspace) || !fs.lstatSync(workspace).isDirectory()) {
+              console.error('Error: GITHUB_WORKSPACE is not a directory. Aborting cleanup.');
+              process.exit(1);
+            }
+
+            const directoriesToRemove = [
+              path.join(workspace, '.windsor'),
+              path.join(workspace, 'terraform'),
+              path.join(workspace, 'kustomize')
+            ];
+
+            const filesToRemove = [
+              path.join(workspace, '.yamllint'),
+              path.join(workspace, '.gitignore'),
+              path.join(workspace, '.editorconfig')
+            ];
+
+            // Remove directories
+            directoriesToRemove.forEach(dir => {
+              if (fs.existsSync(dir)) {
+                console.log(`Removing directory: ${dir}`);
+                fs.rmSync(dir, { recursive: true, force: true });
+              }
+            });
+
+            // Remove files
+            filesToRemove.forEach(file => {
+              if (fs.existsSync(file)) {
+                console.log(`Removing file: ${file}`);
+                fs.rmSync(file, { force: true });
+              }
+            });
+
+            // Remove all files in the workspace
+            fs.readdirSync(workspace).forEach(file => {
+              const filePath = path.join(workspace, file);
+              if (fs.lstatSync(filePath).isFile()) {
+                console.log(`Removing file: ${filePath}`);
+                fs.rmSync(filePath, { force: true });
+              }
+            });
+
+          } catch (error) {
+            console.error('Error during Windsor clean-up:', error.message);
+            process.exit(1);
+          }
+
+    - name: Remove tools
+      if: always() 
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const { execSync } = require('child_process');
+
+          try {
+            console.log('Removing tools with Aqua...');
+            execSync('aqua rm --all', { stdio: 'inherit' });
+            console.log('Tools removed successfully.');
+          } catch (error) {
+            console.error('Error removing tools:', error.message);
+            process.exit(1);
+          }
+    
+    - name: Check for Remaining Files
+      if: always() 
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          const os = require('os');
+
+          try {
+            const workspace = process.env.GITHUB_WORKSPACE;
+            const platform = os.platform();
+            console.log(`Checking for remaining files in the workspace on ${platform}...`);
+
+            let remainingFiles = [];
+
+            if (platform === 'win32') {
+              // Windows: Use fs.readdirSync to list files
+              remainingFiles = fs.readdirSync(workspace).filter(file => {
+                const filePath = path.join(workspace, file);
+                return fs.lstatSync(filePath).isFile();
+              });
+            } else {
+              // Linux/macOS: Use fs.readdirSync to list files
+              remainingFiles = fs.readdirSync(workspace).filter(file => {
+                const filePath = path.join(workspace, file);
+                return fs.lstatSync(filePath).isFile();
+              });
+            }
+
+            if (remainingFiles.length > 0) {
+              console.error('Error: Found files in the workspace that should be removed:');
+              remainingFiles.forEach(file => console.log(file));
+              process.exit(1);
+            } else {
+              console.log('No remaining files found in the workspace.');
+            }
+          } catch (error) {
+            console.error('Error checking for remaining files:', error.message);
+            process.exit(1);
+          }
 
     - name: Validate and Report Test Completion
       run: |
