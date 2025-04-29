@@ -67,57 +67,31 @@ runs:
           Remove-Item -Recurse -Force $installPath
         }
         
+        Write-Host "Downloading Aqua from $url..."
         Invoke-WebRequest -Uri $url -OutFile $output
+        
+        Write-Host "Extracting Aqua to $installPath..."
         Expand-Archive -Path $output -DestinationPath $installPath -Force
         
         # Add the install path to the PATH environment variable
+        Write-Host "Adding Aqua to PATH..."
         "$installPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         Set-Item Env:Path "$Env:LOCALAPPDATA\aquaproj-aqua\bin;$Env:Path"
         "$Env:LOCALAPPDATA\aquaproj-aqua\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         
-        # Create custom aqua config without problematic packages for Windows
-        Write-Host "Creating custom Aqua config file for Windows..."
+        # Set environment variables to disable verification
+        $env:AQUA_DISABLE_COSIGN = "true"
+        $env:AQUA_DISABLE_SLSA = "true"
         
-        $configLines = @(
-          "# Custom aqua config for Windows without problematic packages",
-          "registries:",
-          "- type: standard",
-          "  ref: v4.87.0",
-          "packages:",
-          "- name: siderolabs/talos@v1.9.5",
-          "- name: siderolabs/omni/omnictl@v0.48.0",
-          "- name: siderolabs/omni/omni@v0.48.0",
-          "- name: hashicorp/terraform@v1.11.4",
-          "- name: kubernetes/kubectl@v1.32.3",
-          "- name: go-task/task@v3.42.1",
-          "- name: golang/go@go1.24.2",
-          "- name: docker/cli@v27.4.1",
-          "- name: docker/compose@v2.34.0",
-          "- name: helm/helm@v3.17.3"
-        )
-        
-        # Backup original aqua.yaml if exists
-        if (Test-Path aqua.yaml) {
-            Copy-Item -Path aqua.yaml -Destination aqua.yaml.bak -Force
-        }
-        
-        # Save custom config
-        $configLines | Out-File -FilePath aqua.yaml -Encoding utf8
-        
-        # Install with custom config
-        Write-Host "Installing Aqua packages with custom config..."
+        # Install using existing aqua.yaml or default config
+        Write-Host "Installing Aqua packages..."
         try {
             aqua install --only-link
-            Write-Host "Successfully installed packages"
+            Write-Host "Successfully installed packages using Aqua"
         } catch {
             Write-Host "Error installing packages: $_"
             Write-Host "Continuing with tests despite installation errors..."
             # Don't fail - we want to continue with tests
-        }
-        
-        # Restore original config if it existed
-        if (Test-Path aqua.yaml.bak) {
-            Move-Item -Path aqua.yaml.bak -Destination aqua.yaml -Force
         }
       shell: powershell
 
@@ -185,7 +159,6 @@ runs:
         script: |
           const { execSync } = require('child_process');
           const os = require('os');
-          const fs = require('fs');
 
           try {
             const platform = os.platform();
@@ -194,66 +167,14 @@ runs:
             if (platform === 'linux' || platform === 'darwin' || platform === 'win32') {
               console.log('Installing tools using Aqua...');
               
-              // Create a temporary aqua.yaml file with minimal, safe packages
-              const tempAquaConfig = `
-              # Minimal aqua config - only essential packages
-              registries:
-              - type: standard
-                ref: v4.87.0
-              packages:
-              - name: hashicorp/terraform@v1.11.4
-              - name: kubernetes/kubectl@v1.32.3
-              - name: go-task/task@v3.42.1
-              - name: golang/go@go1.24.2
-              - name: docker/cli@v27.4.1
-              - name: docker/compose@v2.34.0
-              - name: helm/helm@v3.17.3
-              # Skipped problematic packages:
-              # - name: fluxcd/flux2@v2.5.1
-              # - name: hashicorp/vault@v1.19.1
-              # - name: derailed/k9s@v0.50.2
-              # - name: 1password/cli@v2.30.3
-              # - name: siderolabs/talos@v1.9.5
-              # - name: siderolabs/omni/omnictl@v0.48.0
-              # - name: siderolabs/omni/omni@v0.48.0
-              # - name: abiosoft/colima@v0.8.1
-              # - name: lima-vm/lima@v1.0.7
-              # - name: aws/aws-cli@2.26.0
-              # - name: getsops/sops@v3.10.1
-              `;
+              // Set environment variables to disable verification
+              process.env.AQUA_DISABLE_COSIGN = 'true';
+              process.env.AQUA_DISABLE_SLSA = 'true';
+              process.env.AQUA_DISABLE_VERIFY = 'true';
               
-              // Backup original aqua.yaml if it exists
-              const aquaConfigExists = fs.existsSync('aqua.yaml');
-              let originalConfig = '';
-              if (aquaConfigExists) {
-                originalConfig = fs.readFileSync('aqua.yaml', 'utf8');
-                fs.renameSync('aqua.yaml', 'aqua.yaml.bak');
-              }
-              
-              try {
-                // Create temp config with minimal tools
-                fs.writeFileSync('aqua.yaml', tempAquaConfig);
-                
-                // Set environment variables to disable verification
-                process.env.AQUA_DISABLE_COSIGN = 'true';
-                process.env.AQUA_DISABLE_SLSA = 'true';
-                process.env.AQUA_DISABLE_VERIFY = 'true';
-                
-                console.log('Installing with minimal config...');
-                execSync('aqua install --only-link', { stdio: 'inherit' });
-                console.log('Tools installed successfully with minimal configuration.');
-              } catch (error) {
-                console.log('Error installing tools: ' + error.message);
-                console.log('Continuing with tests despite tool installation issues...');
-                // Don't fail the workflow - continue with tests
-              } finally {
-                // Restore original aqua.yaml
-                if (aquaConfigExists) {
-                  fs.writeFileSync('aqua.yaml', originalConfig);
-                } else {
-                  fs.unlinkSync('aqua.yaml');
-                }
-              }
+              console.log('Installing with Aqua...');
+              execSync('aqua install --only-link', { stdio: 'inherit' });
+              console.log('Tools installed successfully.');
             } else {
               console.log('Tool installation is not supported on this platform.');
             }
