@@ -74,6 +74,9 @@ runs:
       
     - name: Install Aqua on Linux and macOS
       if: inputs.platform == 'linux' || inputs.platform == 'darwin'
+      env: 
+        AQUA_DISABLE_COSIGN: true
+        AQUA_DISABLE_SLSA: true
       uses: aquaproj/aqua-installer@e2d0136abcf70b7a2f6f505720640750557c4b33 # v3.1.1
       with:
         aqua_version: v2.43.1
@@ -149,17 +152,33 @@ runs:
         Write-Host "Installing yq on Windows..."
         $yqVersion = "v4.35.1"
         $yqUrl = "https://github.com/mikefarah/yq/releases/download/${yqVersion}/yq_windows_amd64.exe"
-        $yqPath = "$env:USERPROFILE\yq.exe"
+        
+        # Create bin directory in GitHub workspace to store yq
+        $binDir = Join-Path $env:GITHUB_WORKSPACE "bin"
+        New-Item -Path $binDir -ItemType Directory -Force | Out-Null
+        $yqPath = Join-Path $binDir "yq.exe"
         
         # Download yq
+        Write-Host "Downloading yq from $yqUrl to $yqPath"
         Invoke-WebRequest -Uri $yqUrl -OutFile $yqPath
         
-        # Add yq to the PATH
-        $env:Path = "$env:USERPROFILE;$env:Path"
-        "$env:USERPROFILE" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        # Add bin directory to PATH
+        Write-Host "Adding $binDir to PATH"
+        $env:PATH = "$binDir;$env:PATH"
+        [Environment]::SetEnvironmentVariable("PATH", $env:PATH, "Process")
         
-        # Verify yq was installed
-        yq --version
+        # Add to GITHUB_PATH for subsequent steps
+        Write-Host "$binDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        
+        # Verify yq installation
+        try {
+            $yqVersion = (& $yqPath --version) 2>&1
+            Write-Host "Successfully installed yq: $yqVersion"
+        }
+        catch {
+            Write-Host "Error verifying yq installation: $_"
+            exit 1
+        }
       shell: powershell
 
     - name: Print Aqua Path
@@ -600,6 +619,7 @@ runs:
       run: |
         $testConfig = '${{ inputs.windsor_test_config }}'
         $testConfigPath = if ([System.IO.Path]::IsPathRooted($testConfig)) { $testConfig } else { Join-Path $env:GITHUB_WORKSPACE $testConfig }
+        $yqPath = Join-Path $env:GITHUB_WORKSPACE "bin\yq.exe"
 
         Write-Host "Test configuration path: $testConfigPath"
         
@@ -611,29 +631,42 @@ runs:
 
         # Read the tests-list from the windsor_test_config file using yq
         try {
-            # Use proper yq syntax for Windows
+            # Use proper yq syntax for Windows with explicit path
             Write-Host "Reading test configuration with yq..."
             
-            # Use PowerShell to read and parse the file if yq fails
             try {
-                $tests_list_json = & yq eval '.tests-list' -o=json $testConfigPath
+                Write-Host "Running command: & $yqPath eval '.tests-list' -o=json '$testConfigPath'"
+                $tests_list_json = & $yqPath eval '.tests-list' -o=json $testConfigPath
+                
+                if (-not $tests_list_json) {
+                    throw "No output from yq command"
+                }
+                
+                # Convert JSON to PowerShell object
                 $tests_list = $tests_list_json | ConvertFrom-Json
                 Write-Host "Successfully parsed test configuration with yq"
-            }
-            catch {
+            } catch {
                 Write-Host "Falling back to direct YAML parsing due to yq error: $_"
                 
                 # Try to install the PowerShell YAML module if yq fails
-                Install-Module -Name powershell-yaml -Force -Scope CurrentUser
+                Write-Host "Installing PowerShell-YAML module..."
+                Install-Module -Name powershell-yaml -Force -Scope CurrentUser -SkipPublisherCheck -AllowClobber
                 
                 # Read YAML directly with PowerShell
+                Write-Host "Reading YAML directly with PowerShell..."
                 $yamlContent = Get-Content -Path $testConfigPath -Raw
-                $yaml = ConvertFrom-Yaml -Yaml $yamlContent
+                
+                # Add required module
+                Import-Module -Name powershell-yaml
+                
+                $yaml = ConvertFrom-Yaml -Yaml $yamlContent -Ordered
                 $tests_list = $yaml.'tests-list'
                 
                 if (-not $tests_list) {
                     throw "Could not find tests-list in YAML content"
                 }
+                
+                Write-Host "Successfully parsed YAML with PowerShell module"
             }
         } catch {
             Write-Host "Error reading or parsing YAML file: $_"
@@ -678,7 +711,15 @@ runs:
                     } else {
                         switch ($type) {
                             'shell' {
-                                bash -c "dos2unix '$path' 2>/dev/null || true; bash '$path'"
+                                # Add error handling and safer command execution
+                                $fullPath = Join-Path $env:GITHUB_WORKSPACE $path
+                                Write-Host "Running bash script at $fullPath"
+                                
+                                # Use -c for PowerShell quoting
+                                bash -c "dos2unix '$fullPath' 2>/dev/null || true; bash '$fullPath'"
+                                if ($LASTEXITCODE -ne 0) {
+                                    throw "Script execution failed with exit code $LASTEXITCODE"
+                                }
                             }
                             'bats' {
                                 Write-Host "Skipping: bats '$path'"
