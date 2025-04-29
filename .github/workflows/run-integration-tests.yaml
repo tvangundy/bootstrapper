@@ -61,16 +61,36 @@ jobs:
           echo "Windsor Up: ${{ inputs.windsor_up }}"
           echo "Windsor Test Config: ${{ inputs.windsor_test_config }}"
           echo "----------------------------------------"
-          
+
+      - name: Determine Release Branch
+        uses: ./.github/actions/determine-release-branch
+        with:
+          version: ${{ inputs.version }}
+          release: ${{ inputs.release }}
+          repo_owner: ${{ inputs.target_repo_owner }}
+          repo_name: ${{ inputs.target_repo_name }}
+          token: ${{ inputs.token }}
+    
+      - name: Display Release Info
+        run: |
+          echo "----------------------------------------"
+          echo "Release Information"
+          echo "----------------------------------------"
+          echo "Release Branch: ${{ env.RELEASE_BRANCH }}"
+          echo "Release Number: ${{ env.RELEASE_NUMBER }}"
+          echo "Version: ${{ env.VERSION }}"
+          echo "----------------------------------------"
+        shell: bash
+
       - name: Run Integration Test Prep Action
         id: test_prep
         uses: ./.github/actions/integration-test-prep
         with:
           repo_owner: ${{ inputs.target_repo_owner }}
           repo_name: ${{ inputs.target_repo_name }}
-          version: ${{ inputs.version }}
-          release_branch: ${{ inputs.release_branch }}
-          release_number: ${{ inputs.release_number }}
+          version: ${{ env.VERSION }}
+          release_branch: ${{ env.RELEASE_BRANCH }}
+          release_number: ${{ env.RELEASE_NUMBER }}
           windsor_test_config: ${{ inputs.windsor_test_config }}
           token: ${{ secrets.WINDSORCLI_RELEASE_TOKEN }}    
 
