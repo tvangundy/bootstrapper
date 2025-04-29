@@ -16,9 +16,11 @@ tests-list:
 
   # shell tests for bash and zsh on Linux and macOS
   - path: tests/shell/sample-test.sh
+    type: shell
     os: [linux, darwin]
     shell: bash
   - path: tests/shell/sample-test.sh
+    type: shell
     os: [linux, darwin]
     shell: zsh
 

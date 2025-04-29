@@ -3,22 +3,23 @@ runners:
     label: bare-metal
     arch: ARM64
     docker_host: unix:///var/run/docker.sock
-  - os: Linux
-    label: bare-metal
+  - os: ubuntu-latest
+    label: github-hosted
     arch: X64
     docker_host: unix:///var/run/docker.sock
-  - os: Windows
-    label: bare-metal
+  - os: windows-latest
+    label: github-hosted
     arch: X64
-    docker_host: tcp://127.0.0.1:2375
   
 tests-list:
 
   # shell tests for bash and zsh on Linux and macOS
   - path: tests/shell/sample-test.sh
+    type: shell
     os: [linux, darwin]
     shell: bash
   - path: tests/shell/sample-test.sh
+    type: shell
     os: [linux, darwin]
     shell: zsh
 

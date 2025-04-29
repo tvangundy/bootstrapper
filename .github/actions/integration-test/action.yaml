@@ -451,16 +451,8 @@ runs:
     - name: Run Tests on Linux and MacOS
       if: inputs.platform != 'win32'
       run: |
-        # Function to handle errors
-        handle_error() {
-          local exit_code=$?
-          local line_no=$1
-          echo "Error on line $line_no: Command exited with status $exit_code"
-          exit 0  # Exit with success for debugging
-        }
-        
-        # Set up a trap to catch errors
-        trap 'handle_error $LINENO' ERR
+        # Don't use error trapping - it's causing confusion in output
+        set +e
         
         echo "========================================="
         echo "          PREPARING TESTS                "
@@ -481,6 +473,8 @@ runs:
         # Check if the test config file exists
         if [ ! -f "$testConfigPath" ]; then
           echo "Error: Test configuration file not found: $testConfigPath"
+          echo "TEST_SUCCESS_COUNT=0" >> $GITHUB_ENV
+          echo "TEST_FAIL_COUNT=1" >> $GITHUB_ENV
           exit 0
         fi
 
@@ -632,9 +626,14 @@ runs:
         }
         
         # Parse the YAML
+        parse_data=$(parse_yaml "$testConfigPath")
+        parse_result=$?
+        
         parsed_tests=()
-        if ! parse_data=$(parse_yaml "$testConfigPath"); then
-          echo "$parse_data"  # Show the error message
+        if [ $parse_result -ne 0 ]; then
+          echo "Error parsing YAML file: $parse_data"
+          echo "TEST_SUCCESS_COUNT=0" >> $GITHUB_ENV
+          echo "TEST_FAIL_COUNT=1" >> $GITHUB_ENV
           exit 0
         else
           # Convert output to array
@@ -645,6 +644,8 @@ runs:
         
         if [ ${#parsed_tests[@]} -eq 0 ]; then
           echo "Error: No tests found in configuration file"
+          echo "TEST_SUCCESS_COUNT=0" >> $GITHUB_ENV
+          echo "TEST_FAIL_COUNT=1" >> $GITHUB_ENV
           exit 0
         fi
         
@@ -691,8 +692,9 @@ runs:
               full_path="$GITHUB_WORKSPACE/$path"
             fi
             
-            # Run the test
+            # Run the test based on type
             if [ -d "$full_path" ] && [ "$type" == "bats" ]; then
+              # Handle bats tests directory
               echo "Executing bats tests in directory: $full_path"
               bats_files=$(find "$full_path" -name "*.bats" -type f)
               
@@ -707,17 +709,19 @@ runs:
               # Check if bats is installed
               if ! command -v bats &> /dev/null; then
                 if [ "$(uname)" == "Darwin" ]; then
-                  brew install bats-core || {
+                  brew install bats-core
+                  if [ $? -ne 0 ]; then
                     echo "Error: Failed to install bats-core" 
                     ((fail_count++))
                     continue
-                  }
+                  fi
                 else
-                  npm install -g bats || {
+                  npm install -g bats
+                  if [ $? -ne 0 ]; then
                     echo "Error: Failed to install bats-core" 
                     ((fail_count++))
                     continue
-                  }
+                  fi
                 fi
               fi
               
@@ -725,7 +729,8 @@ runs:
               test_success=true
               for bats_file in $bats_files; do
                 echo "Running bats test: $bats_file"
-                if ! bats "$bats_file"; then
+                bats "$bats_file"
+                if [ $? -ne 0 ]; then
                   echo "Error: Bats test failed: $bats_file"
                   test_success=false
                 fi
@@ -740,10 +745,9 @@ runs:
               chmod +x "$full_path"
               echo "Executing shell test: $full_path"
               
-              # Run the test with error output capture and exit code preservation
-              output=$(bash "$full_path" 2>&1)
+              # Run the test without error trapping
+              bash "$full_path"
               exit_code=$?
-              echo "$output"
               
               if [ $exit_code -ne 0 ]; then
                 echo "Error: Script execution failed with exit code $exit_code"
@@ -772,16 +776,14 @@ runs:
         echo "Success: $success_count"
         echo "Failed:  $fail_count"
         
-        # Set output variable for test status
-        echo "::set-output name=test_status::$([ $fail_count -eq 0 ] && echo "success" || echo "failure")"
-        
         # Export environment variables for other steps
         echo "TEST_SUCCESS_COUNT=$success_count" >> $GITHUB_ENV
         echo "TEST_FAIL_COUNT=$fail_count" >> $GITHUB_ENV
         
         if [ $fail_count -gt 0 ]; then
           echo "One or more tests failed!"
-          exit 0
+          # Set non-zero exit code only when tests actually fail
+          exit 1
         fi
         
         echo "All tests completed successfully!"
